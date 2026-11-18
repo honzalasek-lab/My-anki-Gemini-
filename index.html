@@ -1,0 +1,2454 @@
+<!DOCTYPE html>
+<html lang="cs" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+    <title>AnkiSmart - Chytré kartičky (Španělština & Angličtina)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        html, body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100dvh;
+            width: 100%;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        /* Plynulý přechod pro odhalení odpovědi (Stav B) */
+        .answer-reveal {
+            transition: opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1), transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .answer-reveal.is-hidden {
+            opacity: 0;
+            transform: translateY(8px);
+            pointer-events: none;
+        }
+        .answer-reveal.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        /* Jemný scrollbar pro seznam slovíček */
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 9999px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .answer-reveal {
+                transition: none !important;
+            }
+        }
+    </style>
+
+    <style>
+      #flashcard { transform-style: preserve-3d; backface-visibility: hidden; }
+      #flashcard.card-flip-animate { animation: ankiCardFlip .62s cubic-bezier(.2,.72,.25,1); }
+      @keyframes ankiCardFlip { 0%{transform:rotateY(0) scale(1)} 42%{transform:rotateY(88deg) scale(.985)} 58%{transform:rotateY(88deg) scale(.985)} 100%{transform:rotateY(0) scale(1)} }
+      @media (prefers-reduced-motion: reduce) { #flashcard.card-flip-animate { animation:none; } }
+      .anki-import-status { min-height:1.25rem; }
+    </style>
+
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-[100dvh] flex flex-col justify-between overflow-x-hidden transition-colors duration-200">
+
+    <!-- Horní lišta: Kompaktní navigace a ovládací ikony -->
+    <header class="w-full max-w-xl mx-auto px-3 pt-2 pb-1 flex items-center justify-between gap-1 shrink-0">
+        <!-- Přepínač jazyků ES / EN -->
+        <div class="flex bg-white/80 dark:bg-slate-900/80 p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shrink-0" role="group" aria-label="Výběr jazyka">
+            <button id="lang-es" type="button" aria-pressed="true" class="px-2 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 bg-blue-600 text-white">
+                <span aria-hidden="true">🇪🇸</span> <span>ES</span>
+            </button>
+            <button id="lang-en" type="button" aria-pressed="false" class="px-2 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                <span aria-hidden="true">🇬🇧</span> <span>EN</span>
+            </button>
+        </div>
+
+        <!-- Počítadlo karet v balíčku (Nové • K opakování • Zvládnuté) -->
+        <div class="flex items-center gap-1.5 bg-white/70 dark:bg-slate-900/70 px-2 py-1 rounded-xl border border-slate-200/70 dark:border-slate-800/70 text-[11px] font-bold shrink-0" aria-label="Počty karet v balíčku">
+            <span id="count-new" class="text-blue-500" title="Nové karty k naučení">0</span>
+            <span class="text-slate-300 dark:text-slate-700" aria-hidden="true">•</span>
+            <span id="count-due" class="text-amber-500" title="K opakování">0</span>
+            <span class="text-slate-300 dark:text-slate-700" aria-hidden="true">•</span>
+            <span id="count-mastered-top" class="text-emerald-500" title="Zvládnuté karty">0</span>
+        </div>
+
+        <!-- Sjednocené akční ikony vpravo (5 tlačítek) -->
+        <div class="flex items-center gap-1 shrink-0">
+            <!-- a) Rychlé přehrání / ztlumení zvuku -->
+            <button id="quick-audio-btn" type="button" aria-label="Přehrát výslovnost (dvojklik přepne ztlumení)" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-colors" title="1x klik = přehrát, 2x klik = ztlumit/zapnout zvuk">
+                <svg id="icon-sound-on" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                <svg id="icon-sound-off" class="w-4 h-4 hidden text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+            </button>
+            <!-- b) Přidat vlastní slovíčko (+) -->
+            <button id="open-add-btn" type="button" aria-label="Přidat vlastní kartičku" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-colors" title="Přidat vlastní slovíčko">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            </button>
+            <!-- c) Přehled všech slovíček / Slovník (ikona knihy) -->
+            <button id="open-dict-btn" type="button" aria-label="Přehled kompletních slovíček (Slovník)" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-colors" title="Slovník – přehled všech slovíček">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            </button>
+            <!-- d) Statistiky & Stažení velkého slovníku (ikona grafu) -->
+            <button id="open-stats-btn" type="button" aria-label="Statistiky a stažení slovníků" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-colors" title="Statistiky a stažení slovníků">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            </button>
+            <!-- e) Nastavení denních cílů a hlasů (ikona ozubeného kola) -->
+            <button id="open-settings-btn" type="button" aria-label="Nastavení denních cílů a hlasu" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-colors" title="Nastavení">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Druhá řada: Filtry (Úroveň, Slovní druh) + Denní cíle (čas + nová slovíčka + série) -->
+    <div class="w-full max-w-xl mx-auto px-3 pb-1.5 flex items-center justify-between gap-1 shrink-0">
+        <div class="flex items-center gap-1 min-w-0">
+            <select id="filter-level" aria-label="Filtr jazykové úrovně" class="bg-white/70 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 text-[11px] font-medium rounded-lg px-1.5 py-1 text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="all">Úroveň: Vše</option>
+                <option value="A1-A2">A1–A2</option>
+                <option value="B1-B2">B1–B2</option>
+            </select>
+            <select id="filter-pos" aria-label="Filtr druhu výrazu" class="bg-white/70 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 text-[11px] font-medium rounded-lg px-1.5 py-1 text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="all">Druh: Vše</option>
+                <option value="word">Slovíčko</option>
+                <option value="phrase">Fráze</option>
+            </select>
+        </div>
+
+        <div class="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60 px-2 py-1 rounded-lg shrink-0">
+            <span class="flex items-center gap-0.5" title="Dnešní čas učení / denní cíl">
+                <svg class="w-3 h-3 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span id="study-timer">0:00</span><span class="opacity-60">/</span><span id="daily-goal-display">15m</span>
+            </span>
+            <span class="text-slate-300 dark:text-slate-700" aria-hidden="true">•</span>
+            <span id="daily-words-display" class="text-blue-600 dark:text-blue-400 font-semibold" title="Dnes naučená nová slovíčka / denní limit">0/20 slov</span>
+            <span class="text-slate-300 dark:text-slate-700" aria-hidden="true">•</span>
+            <span id="streak-display" class="text-orange-500 font-semibold" title="Denní série">🔥 1</span>
+        </div>
+    </div>
+
+    <!-- Hlavní oblast kartičky (jednotná karta se Stavem A a Stavem B) -->
+    <main class="w-full max-w-xl mx-auto px-3 pb-3 flex-1 flex flex-col justify-between gap-2.5">
+        
+        <!-- KARTA UČENÍ SLOVÍČKA -->
+        <div id="flashcard-area" class="flex-1 flex flex-col">
+            <article id="flashcard" class="w-full h-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800/90 rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-colors">
+                
+                <!-- Horní metadata karty -->
+                <div class="flex items-center justify-between gap-2 shrink-0">
+                    <div class="flex items-center gap-1.5">
+                        <span id="card-level-badge" class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-bold tracking-wide">B1-B2</span>
+                        <span id="card-pos-badge" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11px] font-medium">Sloveso</span>
+                    </div>
+                    <button id="delete-custom-btn" type="button" aria-label="Smazat tuto vlastní kartu" class="hidden p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-xs transition-colors" title="Smazat vlastní kartu">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+
+                <!-- STAV A (vždy viditelný): Dominantní slovíčko + fonetika + tlačítko výslovnosti + (ve Stavu B obrázek) -->
+                <div class="flex flex-col items-center text-center my-auto py-1.5">
+                    <h1 id="card-word" class="text-3xl sm:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight break-words max-w-full px-1">
+                        fomentar
+                    </h1>
+
+                    <div class="mt-1.5 flex items-center justify-center gap-1.5">
+                        <span id="card-phonetic" class="text-sm sm:text-base text-slate-500 dark:text-slate-400 font-mono">/fo-men-tar/</span>
+                        <button id="card-audio-btn" type="button" aria-label="Přehrát výslovnost slovíčka (dvojklik pro zpomalení na 0.65x)" class="min-w-[40px] min-h-[40px] px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-blue-500/15 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center transition-colors active:scale-95" title="1x klik = normálně, 2x klik = pomalu (0.65x)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- 1. Ilustrační obrázek (skrytý ve Stavu A, odhalí se až ve Stavu B, cca 124x124 px) -->
+                    <div id="card-visual-wrapper" class="hidden answer-reveal is-hidden mt-3 w-[124px] h-[124px] rounded-2xl overflow-hidden flex items-center justify-center shrink-0 border border-slate-200/70 dark:border-slate-800/80 shadow-sm">
+                        <div id="card-bg-visual" class="w-full h-full flex items-center justify-center"></div>
+                    </div>
+                </div>
+
+                <!-- STAV B (skrytý v režimu testování znalosti, odhalí se po kliknutí na „Zobrazit překlad“) -->
+                <div id="answer-section" class="hidden answer-reveal is-hidden space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                    
+                    <!-- 2. Český překlad (výrazná modrá barva, velké tučné písmo) -->
+                    <div class="text-center px-1">
+                        <p id="card-translation" class="text-2xl sm:text-3xl font-extrabold text-blue-600 dark:text-blue-400 leading-snug break-words">
+                            podporovat, podněcovat
+                        </p>
+                    </div>
+
+                    <!-- 3. Kompaktní box PAMĚŤOVÁ ASOCIACE -->
+                    <div id="card-mnemonic-box" class="bg-slate-100/90 dark:bg-slate-950/75 border border-slate-200/80 dark:border-slate-800/90 rounded-2xl px-3 py-2">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Paměťová asociace</div>
+                        <p id="card-mnemonic" class="text-xs text-slate-700 dark:text-slate-300 mt-0.5 leading-relaxed break-words">
+                            Konev zalévá mladý stromek a slunce mu pomáhá růst.
+                        </p>
+                    </div>
+
+                    <!-- 4. Box příkladové věty -->
+                    <div id="card-example-box" class="bg-slate-100/90 dark:bg-slate-950/75 border border-slate-200/80 dark:border-slate-800/90 rounded-2xl px-3 py-2.5 flex items-center justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <p id="card-example-es" class="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug break-words">
+                                Debemos fomentar la lectura en los niños.
+                            </p>
+                            <p id="card-example-cs" class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-snug break-words">
+                                Musíme u dětí podporovat čtení.
+                            </p>
+                        </div>
+                        <button id="example-audio-btn" type="button" aria-label="Přehrát příkladovou větu" class="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white flex items-center justify-center shrink-0 transition-colors" title="Přehrát větu">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+            </article>
+        </div>
+
+        <!-- Obrazovka po dokončení dnešního balíčku nebo dosažení denního limitu nových slov -->
+        <div id="completed-area" class="hidden flex-1 flex flex-col items-center justify-center text-center p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl">
+            <div id="completed-icon" class="text-5xl mb-3" aria-hidden="true">🎉</div>
+            <h2 id="completed-title" class="text-2xl font-extrabold text-slate-900 dark:text-white mb-2">Skvělá práce!</h2>
+            <p id="completed-desc" class="text-sm text-slate-500 dark:text-slate-400 max-w-xs mb-5">Pro tento filtr máte pro dnešek všechna slovíčka procvičená.</p>
+            <div class="flex flex-col gap-2.5 w-full max-w-xs">
+                <button id="increase-limit-btn" type="button" class="hidden w-full py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-colors">
+                    Přidat dalších 10 nových slov na dnešek
+                </button>
+                <button id="practice-extra-btn" type="button" class="w-full py-3.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-sm transition-colors">
+                    Procvičit dalších 10 karet navíc
+                </button>
+            </div>
+        </div>
+
+        <!-- Spodní ovládací lišta -->
+        <div id="controls-area" class="shrink-0 pt-0.5 pb-1">
+            <!-- Stav A: Výrazné tlačítko „Zobrazit překlad“ -->
+            <button id="flip-btn" type="button" class="w-full min-h-[52px] py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-bold text-base transition-all">
+                Zobrazit překlad
+            </button>
+
+            <!-- Stav B: Čtyři hodnoticí tlačítka -->
+            <div id="rating-buttons" class="hidden grid grid-cols-4 gap-2" role="group" aria-label="Hodnocení znalosti slovíčka">
+                <button data-rating="1" type="button" aria-label="Znovu – opakovat za 1 minutu" class="rating-btn min-h-[56px] py-2 px-1 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 flex flex-col items-center justify-center transition-colors active:scale-95">
+                    <span id="interval-1" class="text-[11px] font-medium text-rose-600 dark:text-rose-300 leading-tight">1 min</span>
+                    <span class="text-xs sm:text-sm font-extrabold text-rose-700 dark:text-rose-200 mt-0.5 leading-tight">Znovu</span>
+                </button>
+                <button data-rating="2" type="button" aria-label="Těžké – opakovat za 6 minut" class="rating-btn min-h-[56px] py-2 px-1 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 flex flex-col items-center justify-center transition-colors active:scale-95">
+                    <span id="interval-2" class="text-[11px] font-medium text-amber-700 dark:text-amber-300 leading-tight">6 min</span>
+                    <span class="text-xs sm:text-sm font-extrabold text-amber-800 dark:text-amber-200 mt-0.5 leading-tight">Těžké</span>
+                </button>
+                <button data-rating="3" type="button" aria-label="Dobře – opakovat za 10 minut" class="rating-btn min-h-[56px] py-2 px-1 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 flex flex-col items-center justify-center transition-colors active:scale-95">
+                    <span id="interval-3" class="text-[11px] font-medium text-emerald-700 dark:text-emerald-300 leading-tight">10 min</span>
+                    <span class="text-xs sm:text-sm font-extrabold text-emerald-800 dark:text-emerald-200 mt-0.5 leading-tight">Dobře</span>
+                </button>
+                <button data-rating="4" type="button" aria-label="Snadné – opakovat za 4 dny" class="rating-btn min-h-[56px] py-2 px-1 rounded-2xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/35 flex flex-col items-center justify-center transition-colors active:scale-95">
+                    <span id="interval-4" class="text-[11px] font-medium text-blue-700 dark:text-blue-300 leading-tight">4 dny</span>
+                    <span class="text-xs sm:text-sm font-extrabold text-blue-800 dark:text-blue-200 mt-0.5 leading-tight">Snadné</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ZÁLOŽKA / PŘEHLED KOMPLETNÍCH SLOVÍČEK (SLOVNÍK) -->
+    <div id="dict-modal" class="hidden fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-col">
+        <div class="w-full max-w-2xl mx-auto px-4 pt-3 pb-2.5 border-b border-slate-200 dark:border-slate-800 shrink-0">
+            <div class="flex items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg" aria-hidden="true">📖</span>
+                    <div>
+                        <h3 class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
+                            Kompletní slovník (<span id="dict-lang-label">🇪🇸 ES</span>)
+                        </h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                            Zobrazeno <span id="dict-count-label" class="font-bold text-blue-500">0</span> položek
+                        </p>
+                    </div>
+                </div>
+                <button id="close-dict-btn" type="button" aria-label="Zavřít slovník" class="px-3 py-2 rounded-xl bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-bold transition-colors">
+                    ✕ Zavřít
+                </button>
+            </div>
+
+            <!-- Vyhledávání a filtry ve slovníku -->
+            <div class="space-y-2">
+                <div class="relative">
+                    <input id="dict-search-input" type="search" placeholder="Hledat cizí slovíčko nebo český překlad..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <select id="dict-filter-level" aria-label="Filtr úrovně ve slovníku" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        <option value="all">Úroveň: Vše</option>
+                        <option value="A1-A2">A1–A2 (Základní)</option>
+                        <option value="B1-B2">B1–B2 (Pokročilé)</option>
+                    </select>
+                    <select id="dict-filter-status" aria-label="Filtr stavu znalosti ve slovníku" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        <option value="all">Stav: Vše</option>
+                        <option value="new">🔵 Nové</option>
+                        <option value="learning">🟡 Učím se</option>
+                        <option value="mastered">🟢 Zvládnuté</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seznam slovíček -->
+        <div id="dict-list-container" class="w-full max-w-2xl mx-auto flex-1 overflow-y-auto custom-scroll px-4 py-3 space-y-2">
+            <!-- Položky se vykreslí dynamicky -->
+        </div>
+    </div>
+
+    <!-- MODAL: PŘIDAT NOVÉ SLOVÍČKO -->
+    <div id="add-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90dvh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Přidat novou kartičku</h3>
+                <button id="close-add-btn" type="button" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white">✕</button>
+            </div>
+            <form id="add-card-form" class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Jazyk</label>
+                        <select id="new-lang" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-semibold">
+                            <option value="es">🇪🇸 Španělština</option>
+                            <option value="en">🇬🇧 Angličtina</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Úroveň</label>
+                        <select id="new-level" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-semibold">
+                            <option value="A1-A2">A1–A2</option>
+                            <option value="B1-B2" selected>B1–B2</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Slovní druh</label>
+                        <select id="new-pos" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-semibold">
+                            <option value="Sloveso">Sloveso</option>
+                            <option value="Podst. jm.">Podst. jm.</option>
+                            <option value="Příd. jm.">Příd. jm.</option>
+                            <option value="Fráze">Fráze</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1">Výslovnost (volitelné)</label>
+                        <input id="new-phonetic" type="text" placeholder="/vý-slov-nost/" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Cizí slovíčko / fráze *</label>
+                    <input id="new-word" type="text" required placeholder="např. desarrollar" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Český překlad *</label>
+                    <input id="new-translation" type="text" required placeholder="např. rozvíjet, vyvinout" class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Paměťová asociace (mnemonic)</label>
+                    <input id="new-mnemonic" type="text" placeholder="Vlastní pomůcka pro zapamatování..." class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Příkladová věta v cizím jazyce</label>
+                    <input id="new-ex-foreign" type="text" placeholder="Věta pro kontext a poslech..." class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Překlad příkladové věty</label>
+                    <input id="new-ex-cs" type="text" placeholder="Český překlad věty..." class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
+                </div>
+                <button type="submit" class="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm mt-2 transition-colors">
+                    Uložit kartičku do balíčku
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: STATISTIKY A ZÁLOHA + STAŽENÍ VELKÉHO SLOVNÍKU -->
+    <div id="stats-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90dvh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Statistiky & Slovníky</h3>
+                <button id="close-stats-btn" type="button" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white">✕</button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3 mb-5">
+                <div class="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/70">
+                    <div class="text-xs text-slate-500 font-semibold">Zvládnutá slovíčka</div>
+                    <div id="stat-mastered" class="text-2xl font-extrabold text-emerald-500 mt-1">0</div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/70">
+                    <div class="text-xs text-slate-500 font-semibold">Celkem karet v balíčku</div>
+                    <div id="stat-total" class="text-2xl font-extrabold text-blue-500 mt-1">0</div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/70">
+                    <div class="text-xs text-slate-500 font-semibold">Dnes procvičeno</div>
+                    <div id="stat-today" class="text-2xl font-extrabold text-indigo-500 mt-1">0</div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/70">
+                    <div class="text-xs text-slate-500 font-semibold">Denní série</div>
+                    <div id="stat-streak" class="text-2xl font-extrabold text-orange-500 mt-1">1 den</div>
+                </div>
+            </div>
+
+            <div class="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-4">
+                <div class="bg-blue-500/10 border border-blue-500/25 rounded-2xl p-3.5 space-y-2.5">
+                    <div class="text-xs font-extrabold text-blue-600 dark:text-blue-400">Import jazykového balíčku Anki</div>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">Stáhni si balíček z AnkiWeb nebo jiného zdroje jako soubor .apkg a vyber ho zde. Import přidá nové kartičky, rozpozná duplicity a nesmaže dosavadní postup. Podporovány jsou starší i současné formáty .anki2, .anki21 a komprimované .anki21b. Při importu se podle potřeby načtou malé pomocné knihovny z CDN, proto je pro import potřeba internet.</p>
+                    <div class="grid grid-cols-2 gap-2">
+                      <label class="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Jazyk balíčku
+                        <select id="apkg-lang" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs"><option value="es">Španělština</option><option value="en">Angličtina</option></select>
+                      </label>
+                      <label class="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Úroveň
+                        <select id="apkg-level" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs"><option value="A1-A2">A1–A2</option><option value="B1-B2">B1–B2</option></select>
+                      </label>
+                    </div>
+                    <label class="block w-full py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold text-center cursor-pointer">
+                      📦 Vybrat soubor .apkg
+                      <input id="apkg-import-input" type="file" accept=".apkg,application/zip" class="hidden">
+                    </label>
+                    <div id="apkg-import-status" class="anki-import-status text-[11px] font-semibold text-center text-blue-600 dark:text-blue-400" aria-live="polite"></div>
+                </div>
+
+                <p class="text-xs text-slate-500 dark:text-slate-400 pt-1">Váš postup se ukládá automaticky do paměti prohlížeče. Zálohu můžete kdykoli exportovat do souboru:</p>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <button id="export-btn" type="button" class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition-colors">
+                        ⬇️ Exportovat zálohu
+                    </button>
+                    <label class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-center cursor-pointer transition-colors">
+                        ⬆️ Obnovit ze souboru
+                        <input id="import-input" type="file" accept=".json" class="hidden">
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NASTAVENÍ DENNÍCH CÍLŮ A HLASU -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90dvh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Nastavení denních cílů a hlasu</h3>
+                <button id="close-settings-btn" type="button" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white">✕</button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Denní cíle (minuty denně + limit nových slovíček) -->
+                <div class="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 space-y-4">
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-500">Denní studijní cíle</div>
+
+                    <!-- Denní časový cíl v minutách -->
+                    <div>
+                        <div class="flex justify-between text-xs font-bold mb-1">
+                            <span class="text-slate-700 dark:text-slate-200">Denní časový cíl učení</span>
+                            <span id="daily-goal-val" class="text-blue-500">15 min</span>
+                        </div>
+                        <input id="setting-daily-goal" type="range" min="5" max="60" step="5" value="15" class="w-full accent-blue-600">
+                    </div>
+
+                    <!-- Denní limit nových slovíček -->
+                    <div>
+                        <div class="flex justify-between items-center text-xs font-bold mb-1">
+                            <span class="text-slate-700 dark:text-slate-200">Denní limit nových slovíček</span>
+                            <span id="daily-new-limit-val" class="text-blue-500">20 slov / den</span>
+                        </div>
+                        <input id="setting-daily-new-limit" type="range" min="5" max="105" step="5" value="20" class="w-full accent-blue-600">
+                        <div class="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                            <span>5 slov</span>
+                            <span>50 slov</span>
+                            <span>Neomezeně</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Výběr hlasu (4 profily: 2 ženské, 2 mužské) -->
+                <div class="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold uppercase tracking-wider text-slate-500">Hlas přednesu</label>
+                        <button id="test-voice-btn" type="button" class="px-2.5 py-1 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-500/25 transition-colors">
+                            🔊 Vyzkoušet hlas
+                        </button>
+                    </div>
+                    <select id="setting-voice-profile" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-semibold">
+                        <option value="female1">👩 Ženský 1 – jasný a přirozený</option>
+                        <option value="female2">👩 Ženský 2 – jemný a klidnější</option>
+                        <option value="male1">👨 Mužský 1 – energický a zřetelný</option>
+                        <option value="male2">👨 Mužský 2 – hlubší a rozvážný</option>
+                    </select>
+                    <p class="text-[11px] text-slate-400">Tip: Dvojklik na tlačítko výslovnosti přečte slovíčko zpomaleně (0.65×).</p>
+                </div>
+
+                <!-- Rychlost řeči -->
+                <div>
+                    <div class="flex justify-between text-xs font-bold mb-1">
+                        <span class="text-slate-500">Základní rychlost hlasu</span>
+                        <span id="speech-rate-val" class="text-blue-500">1.0×</span>
+                    </div>
+                    <input id="setting-speech-rate" type="range" min="0.6" max="1.3" step="0.05" value="1.0" class="w-full accent-blue-600">
+                </div>
+
+                <!-- Automatické přehrávání -->
+                <div class="flex items-center justify-between py-1">
+                    <div>
+                        <div class="text-sm font-bold">Automaticky číst slovíčko</div>
+                        <div class="text-xs text-slate-400">Přečte nové slovo ihned po zobrazení</div>
+                    </div>
+                    <input id="setting-auto-audio" type="checkbox" checked class="w-5 h-5 accent-blue-600 rounded">
+                </div>
+
+                <div class="flex items-center justify-between py-1">
+                    <div>
+                        <div class="text-sm font-bold">Automaticky číst příkladovou větu</div>
+                        <div class="text-xs text-slate-400">Přečte větu po odhalení odpovědi</div>
+                    </div>
+                    <input id="setting-auto-sentence" type="checkbox" checked class="w-5 h-5 accent-blue-600 rounded">
+                </div>
+
+                <!-- Tmavý režim -->
+                <div class="flex items-center justify-between py-1 border-t border-slate-200 dark:border-slate-800 pt-3">
+                    <div>
+                        <div class="text-sm font-bold">Tmavý režim</div>
+                        <div class="text-xs text-slate-400">Šetří oči i baterii</div>
+                    </div>
+                    <input id="setting-dark-mode" type="checkbox" checked class="w-5 h-5 accent-blue-600 rounded">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plovoucí informační zpráva (Toast) -->
+    <div id="toast" class="hidden fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-xs font-bold shadow-lg backdrop-blur-md transition-opacity">
+        Uloženo
+    </div>
+
+    <script>
+        // --- ZÁKLADNÍ BALÍČEK SLOVÍČEK (CEFR A1-A2 & B1-B2) ---
+        const defaultCards = [
+            // Španělština A1-A2
+            { id: 'es-2', lang: 'es', level: 'A1-A2', pos: 'Podst. jm.', word: 'el consejo', phonetic: '/el kon-se-cho/', translation: 'rada, doporučení', mnemonic: 'Dva lidé si povídají a nad hlavou jim svítí žárovka dobré rady.', exForeign: 'Gracias por tu buen consejo.', exCs: 'Děkuji za tvou dobrou radu.' },
+            { id: 'es-3', lang: 'es', level: 'A1-A2', pos: 'Podst. jm.', word: 'el desayuno', phonetic: '/el de-sa-ju-no/', translation: 'snídaně', mnemonic: 'Ranní slunce, talíř se sázeným vejcem, croissantem a hrnkem kávy.', exForeign: 'El desayuno es la comida más importante del día.', exCs: 'Snídaně je nejdůležitější jídlo dne.' },
+            { id: 'es-10', lang: 'es', level: 'A1-A2', pos: 'Sloveso', word: 'mejorar', phonetic: '/me-cho-rar/', translation: 'zlepšit (se)', mnemonic: 'Stoupající schody s šipkou směřující stále výš k lepšímu výkonu.', exForeign: 'Quiero mejorar mi español este año.', exCs: 'Chci letos zlepšit svou španělštinu.' },
+            { id: 'es-12', lang: 'es', level: 'A1-A2', pos: 'Sloveso', word: 'entender', phonetic: '/en-ten-der/', translation: 'rozumět, chápat', mnemonic: 'Rozsvícená žárovka uvnitř hlavy v okamžiku, kdy vše pochopíte.', exForeign: 'Ahora entiendo cómo funciona esta regla.', exCs: 'Teď už rozumím, jak toto pravidlo funguje.' },
+            { id: 'es-13', lang: 'es', level: 'A1-A2', pos: 'Sloveso', word: 'compartir', phonetic: '/kom-par-tir/', translation: 'sdílet, rozdělit se', mnemonic: 'Rozkrojená pizza s vytaženým kouskem, o který se dělíte.', exForeign: 'Me gusta compartir mis ideas con amigos.', exCs: 'Rád sdílím své nápady s přáteli.' },
+            { id: 'es-14', lang: 'es', level: 'A1-A2', pos: 'Příd. jm.', word: 'disponible', phonetic: '/dis-po-ni-ble/', translation: 'dostupný, k dispozici', mnemonic: 'Otevřené dveře se zelenou cedulkou VOLNO – ihned k dispozici.', exForeign: '¿Está disponible esta mesa cerca de la ventana?', exCs: 'Je tento stůl u okna volný?' },
+            { id: 'es-15', lang: 'es', level: 'A1-A2', pos: 'Podst. jm.', word: 'el billete', phonetic: '/el bi-je-te/', translation: 'jízdenka, letenka, bankovka', mnemonic: 'Papírová jízdenka s čárovým kódem připravená na cestu vlakem.', exForeign: 'Compré un billete de tren a Madrid.', exCs: 'Koupil jsem si jízdenku na vlak do Madridu.' },
+            { id: 'es-16', lang: 'es', level: 'A1-A2', pos: 'Sloveso', word: 'buscar', phonetic: '/bus-kar/', translation: 'hledat', mnemonic: 'Lupa zvětšující skrytý detail při pečlivém hledání.', exForeign: 'Estoy buscando mis llaves por toda la casa.', exCs: 'Hledám své klíče po celém domě.' },
+            { id: 'es-17', lang: 'es', level: 'A1-A2', pos: 'Sloveso', word: 'olvidar', phonetic: '/ol-vi-dar/', translation: 'zapomenout', mnemonic: 'Odletující lísteček s otazníkem z paměti.', exForeign: 'No olvides llevar tu pasaporte.', exCs: 'Nezapomeň si vzít svůj cestovní pas.' },
+            { id: 'es-18', lang: 'es', level: 'A1-A2', pos: 'Podst. jm.', word: 'la costumbre', phonetic: '/la kos-tum-bre/', translation: 'zvyk, tradice', mnemonic: 'Hodiny a hrnek čaje – každodenní opakovaný rituál.', exForeign: 'En España es costumbre cenar tarde.', exCs: 'Ve Španělsku je zvykem večeřet pozdě.' },
+            { id: 'es-19', lang: 'es', level: 'A1-A2', pos: 'Příd. jm.', word: 'peligroso', phonetic: '/pe-li-gro-so/', translation: 'nebezpečný', mnemonic: 'Výstražný trojúhelník s vykřičníkem upozorňující na nebezpečí.', exForeign: 'Es peligroso nadar aquí cuando hay olas.', exCs: 'Je nebezpečné tady plavat, když jsou vlny.' },
+            { id: 'es-20', lang: 'es', level: 'A1-A2', pos: 'Sloveso', word: 'elegir', phonetic: '/e-le-chir/', translation: 'vybrat si, zvolit', mnemonic: 'Ruka ukazující na jednu ze tří možností.', exForeign: 'Puedes elegir el color que más te guste.', exCs: 'Můžeš si vybrat barvu, která se ti nejvíc líbí.' },
+            { id: 'es-21', lang: 'es', level: 'A1-A2', pos: 'Podst. jm.', word: 'el horario', phonetic: '/el o-ra-rjo/', translation: 'rozvrh, otevírací doba', mnemonic: 'Tabulka s hodinami a časy odjezdů či otevření.', exForeign: '¿Cuál es el horario de apertura del museo?', exCs: 'Jaká je otevírací doba muzea?' },
+            { id: 'es-22', lang: 'es', level: 'A1-A2', pos: 'Sloveso', word: 'explicar', phonetic: '/eks-pli-kar/', translation: 'vysvětlit', mnemonic: 'Tabule s jasným nákresem a šipkami pro snadné pochopení.', exForeign: 'El profesor explica la gramática con calma.', exCs: 'Učitel klidně vysvětluje gramatiku.' },
+            { id: 'es-23', lang: 'es', level: 'A1-A2', pos: 'Příd. jm.', word: 'barato', phonetic: '/ba-ra-to/', translation: 'levný', mnemonic: 'Cenovka se zelenou slevou a nízkou cenou.', exForeign: 'Este restaurante es muy bueno y barato.', exCs: 'Tato restaurace je velmi dobrá a levná.' },
+            { id: 'es-24', lang: 'es', level: 'A1-A2', pos: 'Fráze', word: 'de repente', phonetic: '/de re-pen-te/', translation: 'najednou, znenadání', mnemonic: 'Blesk z čistého nebe, který udeří úplně nečekaně.', exForeign: 'De repente empezó a llover muy fuerte.', exCs: 'Najednou začalo velmi silně pršet.' },
+            { id: 'es-25', lang: 'es', level: 'A1-A2', pos: 'Podst. jm.', word: 'la salud', phonetic: '/la sa-lud/', translation: 'zdraví', mnemonic: 'Zelený lékařský kříž se srdcem – symbol pevného zdraví.', exForeign: 'La salud es más importante que el dinero.', exCs: 'Zdraví je důležitější než peníze.' },
+            { id: 'es-26', lang: 'es', level: 'A1-A2', pos: 'Sloveso', word: 'recordar', phonetic: '/re-kor-dar/', translation: 'vzpomínat si, pamatovat si', mnemonic: 'Uzel na kapesníku, který připomene důležitou věc.', exForeign: 'No recuerdo su nombre ahora mismo.', exCs: 'Právě teď si nevzpomínám na jeho jméno.' },
+            { id: 'es-27', lang: 'es', level: 'A1-A2', pos: 'Podst. jm.', word: 'el equipaje', phonetic: '/el e-ki-pa-che/', translation: 'zavazadlo, zavazadla', mnemonic: 'Cestovní kufr na kolečkách s visačkou na letiště.', exForeign: 'Mi equipaje pesa veinte kilos.', exCs: 'Moje zavazadlo váží dvacet kilo.' },
+            { id: 'es-28', lang: 'es', level: 'A1-A2', pos: 'Fráze', word: 'por supuesto', phonetic: '/por su-pues-to/', translation: 'samozřejmě, jistě', mnemonic: 'Velké zelené potvrzení – naprostý souhlas bez váhání.', exForeign: '¿Me puedes ayudar? — ¡Sí, por supuesto!', exCs: 'Můžeš mi pomoct? — Ano, samozřejmě!' },
+
+            // Španělština B1-B2
+            { id: 'es-1', lang: 'es', level: 'B1-B2', pos: 'Sloveso', word: 'fomentar', phonetic: '/fo-men-tar/', translation: 'podporovat, podněcovat', mnemonic: 'Konev zalévá mladý stromek a slunce mu pomáhá růst a sílit.', exForeign: 'Debemos fomentar la lectura en los niños.', exCs: 'Musíme u dětí podporovat čtení.' },
+            { id: 'es-4', lang: 'es', level: 'B1-B2', pos: 'Podst. jm.', word: 'la herramienta', phonetic: '/la e-ra-mjen-ta/', translation: 'nástroj, pomůcka', mnemonic: 'Zkřížené kladivo a montážní klíč připravené k práci.', exForeign: 'Es una herramienta muy útil para estudiar.', exCs: 'Je to velmi užitečný nástroj ke studiu.' },
+            { id: 'es-5', lang: 'es', level: 'B1-B2', pos: 'Příd. jm.', word: 'imprescindible', phonetic: '/im-pres-sin-di-ble/', translation: 'nepostradatelný, nezbytný', mnemonic: 'Kapka vody se srdcem – bez vody nelze žít.', exForeign: 'El agua es imprescindible para la vida.', exCs: 'Voda je pro život nepostradatelná.' },
+            { id: 'es-6', lang: 'es', level: 'B1-B2', pos: 'Sloveso', word: 'aprovechar', phonetic: '/a-pro-ve-čar/', translation: 'využít, zužitkovat', mnemonic: 'Plachetnice napíná plachty, aby naplno využila dobrý vítr.', exForeign: 'Hay que aprovechar el buen tiempo hoy.', exCs: 'Musíme dnes využít to pěkné počasí.' },
+            { id: 'es-7', lang: 'es', level: 'B1-B2', pos: 'Sloveso', word: 'lograr', phonetic: '/lo-grar/', translation: 'dosáhnout, podařit se', mnemonic: 'Zlatý pohár vítězů pro toho, komu se to podařilo.', exForeign: 'Logramos terminar el proyecto a tiempo.', exCs: 'Podařilo se nám dokončit projekt včas.' },
+            { id: 'es-8', lang: 'es', level: 'B1-B2', pos: 'Fráze', word: 'a pesar de', phonetic: '/a pe-sar de/', translation: 'navzdory, i přes', mnemonic: 'Pevný deštník vás bezpečně chrání i přes hustý déšť.', exForeign: 'Salimos a caminar a pesar de la lluvia.', exCs: 'Šli jsme na procházku i přes déšť.' },
+            { id: 'es-9', lang: 'es', level: 'B1-B2', pos: 'Podst. jm.', word: 'el desafío', phonetic: '/el de-sa-fí-o/', translation: 'výzva', mnemonic: 'Strmá hora s klikatou stezkou a vlajkou až na samotném vrcholu.', exForeign: 'Aprender un idioma nuevo es un gran desafío.', exCs: 'Naučit se nový jazyk je velká výzva.' },
+            { id: 'es-11', lang: 'es', level: 'B1-B2', pos: 'Sloveso', word: 'desarrollar', phonetic: '/de-sa-ro-jar/', translation: 'rozvíjet, vyvinout', mnemonic: 'Startující raketa vynášející nový projekt vzhůru.', exForeign: 'Es importante desarrollar buenos hábitos.', exCs: 'Je důležité rozvíjet dobré návyky.' },
+            { id: 'es-29', lang: 'es', level: 'B1-B2', pos: 'Sloveso', word: 'superar', phonetic: '/su-pe-rar/', translation: 'překonat, zdolat', mnemonic: 'Skokan hladce přeskakuje vysokou laťku.', exForeign: 'Con esfuerzo logró superar todos sus miedos.', exCs: 'S úsilím se mu podařilo překonat všechny své strachy.' },
+            { id: 'es-30', lang: 'es', level: 'B1-B2', pos: 'Podst. jm.', word: 'la ventaja', phonetic: '/la ben-ta-cha/', translation: 'výhoda, přednost', mnemonic: 'Miska vah nakloněná jasně ve váš prospěch.', exForeign: 'Hablar dos idiomas es una gran ventaja laboral.', exCs: 'Mluvit dvěma jazyky je velká pracovní výhoda.' },
+            { id: 'es-31', lang: 'es', level: 'B1-B2', pos: 'Sloveso', word: 'advertir', phonetic: '/ad-ver-tir/', translation: 'varovat, upozornit', mnemonic: 'Maják vysílající silný světelný signál před útesy.', exForeign: 'Nos advirtieron sobre el tráfico en la carretera.', exCs: 'Varovali nás před provozem na dálnici.' },
+            { id: 'es-32', lang: 'es', level: 'B1-B2', pos: 'Příd. jm.', word: 'escaso', phonetic: '/es-ka-so/', translation: 'vzácný, nedostatečný, skrovný', mnemonic: 'Poslední pár zrnek písku v přesýpacích hodinách.', exForeign: 'El tiempo disponible para terminar es muy escaso.', exCs: 'Dostupný čas na dokončení je velmi krátký.' },
+            { id: 'es-33', lang: 'es', level: 'B1-B2', pos: 'Sloveso', word: 'destacar', phonetic: '/des-ta-kar/', translation: 'vynikat, zdůraznit', mnemonic: 'Zlatá hvězda zářící mezi šedými body.', exForeign: 'Ella siempre destaca por su creatividad.', exCs: 'Ona vždy vyniká svou kreativitou.' },
+            { id: 'es-34', lang: 'es', level: 'B1-B2', pos: 'Podst. jm.', word: 'el entorno', phonetic: '/el en-tor-no/', translation: 'prostředí, okolí', mnemonic: 'Zelené stromy a čistá příroda obklopující dům.', exForeign: 'Debemos cuidar nuestro entorno natural.', exCs: 'Musíme pečovat o naše přírodní prostředí.' },
+            { id: 'es-35', lang: 'es', level: 'B1-B2', pos: 'Fráze', word: 'sin embargo', phonetic: '/sin em-bar-go/', translation: 'avšak, nicméně, přesto', mnemonic: 'Dvě protichůdné šipky ukazující obrat v myšlence.', exForeign: 'El plan era difícil; sin embargo, funcionó.', exCs: 'Plán byl složitý; nicméně fungoval.' },
+            { id: 'es-36', lang: 'es', level: 'B1-B2', pos: 'Sloveso', word: 'aumentar', phonetic: '/au-men-tar/', translation: 'zvýšit, zvětšit, narůstat', mnemonic: 'Lupa zvětšující objekt a stoupající křivka.', exForeign: 'Las ventas han aumentado este trimestre.', exCs: 'Prodeje se v tomto čtvrtletí zvýšily.' },
+            { id: 'es-37', lang: 'es', level: 'B1-B2', pos: 'Příd. jm.', word: 'confiable', phonetic: '/kon-fja-ble/', translation: 'spolehlivý, důvěryhodný', mnemonic: 'Pevný štít se symbolem naprosté důvěry.', exForeign: 'Es una fuente de información totalmente confiable.', exCs: 'Je to zcela spolehlivý zdroj informací.' },
+            { id: 'es-38', lang: 'es', level: 'B1-B2', pos: 'Podst. jm.', word: 'el compromiso', phonetic: '/el kom-pro-mi-so/', translation: 'závazek, kompromis, nasazení', mnemonic: 'Podání rukou stvrzující pevnou dohodu.', exForeign: 'El éxito requiere tiempo y compromiso.', exCs: 'Úspěch vyžaduje čas a nasazení.' },
+            { id: 'es-39', lang: 'es', level: 'B1-B2', pos: 'Sloveso', word: 'aplazar', phonetic: '/a-pla-sar/', translation: 'odložit, odsunout termín', mnemonic: 'Kalendář se šipkou posouvající datum na později.', exForeign: 'Tuvimos que aplazar la reunión hasta el lunes.', exCs: 'Museli jsme schůzku odložit až na pondělí.' },
+            { id: 'es-40', lang: 'es', level: 'B1-B2', pos: 'Fráze', word: 'a largo plazo', phonetic: '/a lar-go pla-so/', translation: 'dlouhodobě, v dlouhodobém horizontu', mnemonic: 'Dalekohled mířící daleko k obzoru.', exForeign: 'Aprender idiomas es una inversión a largo plazo.', exCs: 'Učení jazyků je dlouhodobá investice.' },
+
+            // Angličtina A1-A2
+            { id: 'en-3', lang: 'en', level: 'A1-A2', pos: 'Sloveso', word: 'achieve', phonetic: '/əˈtʃiːv/', translation: 'dosáhnout, dokázat', mnemonic: 'Šíp trefující přesně střed terče na první dobrou.', exForeign: 'You can achieve anything if you work hard.', exCs: 'Můžeš dokázat cokoli, když budeš tvrdě pracovat.' },
+            { id: 'en-6', lang: 'en', level: 'A1-A2', pos: 'Podst. jm.', word: 'habit', phonetic: '/ˈhæbɪt/', translation: 'zvyk, návyk', mnemonic: 'Hodiny a otevřená kniha každodenního rituálu.', exForeign: 'Reading before bed is a great habit.', exCs: 'Čtení před spaním je skvělý zvyk.' },
+            { id: 'en-9', lang: 'en', level: 'A1-A2', pos: 'Příd. jm.', word: 'consistent', phonetic: '/kənˈsɪstənt/', translation: 'důsledný, vytrvalý', mnemonic: 'Řada zeleně odškrtnutých dnů v kalendáři bez vynechání.', exForeign: 'Consistent practice is the key to fluency.', exCs: 'Vytrvalé procvičování je klíčem k plynulosti.' },
+            { id: 'en-10', lang: 'en', level: 'A1-A2', pos: 'Sloveso', word: 'improve', phonetic: '/ɪmˈpruːv/', translation: 'zlepšit (se)', mnemonic: 'Rostoucí sloupce grafu se šipkou směřující strmě vzhůru.', exForeign: 'Your English will improve every day.', exCs: 'Tvá angličtina se bude každý den zlepšovat.' },
+            { id: 'en-11', lang: 'en', level: 'A1-A2', pos: 'Podst. jm.', word: 'advice', phonetic: '/ədˈvaɪs/', translation: 'rada, doporučení', mnemonic: 'Dva lidé v rozhovoru a žárovka dobré rady nad nimi.', exForeign: 'Thank you for giving me such good advice.', exCs: 'Děkuji, že jsi mi dal tak dobrou radu.' },
+            { id: 'en-12', lang: 'en', level: 'A1-A2', pos: 'Sloveso', word: 'borrow', phonetic: '/ˈbɒrəʊ/', translation: 'půjčit si (od někoho)', mnemonic: 'Kniha podávaná z jedné ruky do druhé se šipkou k sobě.', exForeign: 'Can I borrow your pen for a minute?', exCs: 'Mohu si na minutu půjčit tvé pero?' },
+            { id: 'en-13', lang: 'en', level: 'A1-A2', pos: 'Příd. jm.', word: 'crowded', phonetic: '/ˈkraʊdɪd/', translation: 'přelidněný, plný lidí', mnemonic: 'Mnoho postav namačkaných těsně vedle sebe.', exForeign: 'The subway is always crowded in the morning.', exCs: 'Metro je ráno vždy přeplněné.' },
+            { id: 'en-14', lang: 'en', level: 'A1-A2', pos: 'Podst. jm.', word: 'journey', phonetic: '/ˈdʒɜːni/', translation: 'cesta, putování', mnemonic: 'Klikatá silnice vedoucí krajinou k vzdálenému cíli.', exForeign: 'The train journey took about three hours.', exCs: 'Cesta vlakem trvala asi tři hodiny.' },
+            { id: 'en-15', lang: 'en', level: 'A1-A2', pos: 'Sloveso', word: 'explain', phonetic: '/ɪkˈspleɪn/', translation: 'vysvětlit', mnemonic: 'Tabule s přehledným schématem pro snadné vysvětlení.', exForeign: 'Could you explain that rule one more time?', exCs: 'Mohl bys to pravidlo vysvětlit ještě jednou?' },
+            { id: 'en-16', lang: 'en', level: 'A1-A2', pos: 'Příd. jm.', word: 'available', phonetic: '/əˈveɪləbl/', translation: 'dostupný, volný, k dispozici', mnemonic: 'Otevřené dveře se zelenou značkou volného přístupu.', exForeign: 'Is this seat next to you available?', exCs: 'Je toto místo vedle tebe volné?' },
+            { id: 'en-17', lang: 'en', level: 'A1-A2', pos: 'Sloveso', word: 'prepare', phonetic: '/prɪˈpeə/', translation: 'připravit (se)', mnemonic: 'Seznam úkolů s odškrtávanými položkami před odjezdem.', exForeign: 'I need to prepare for tomorrow’s presentation.', exCs: 'Potřebuji se připravit na zítřejší prezentaci.' },
+            { id: 'en-18', lang: 'en', level: 'A1-A2', pos: 'Podst. jm.', word: 'luggage', phonetic: '/ˈlʌɡɪdʒ/', translation: 'zavazadla', mnemonic: 'Cestovní kufr na kolečkách připravený na cestu.', exForeign: 'Please keep your luggage with you at all times.', exCs: 'Prosím, mějte svá zavazadla neustále u sebe.' },
+            { id: 'en-19', lang: 'en', level: 'A1-A2', pos: 'Fráze', word: 'on time', phonetic: '/ɒn taɪm/', translation: 'včas, přesně na čas', mnemonic: 'Hodiny ukazující přesně dvanáctou se zeleným potvrzením.', exForeign: 'The flight arrived right on time.', exCs: 'Letadlo přiletělo přesně na čas.' },
+            { id: 'en-20', lang: 'en', level: 'A1-A2', pos: 'Sloveso', word: 'decide', phonetic: '/dɪˈsaɪd/', translation: 'rozhodnout se', mnemonic: 'Rozcestník se dvěma směry a jasnou volbou cesty.', exForeign: 'We need to decide where to go for dinner.', exCs: 'Musíme se rozhodnout, kam půjdeme na večeři.' },
+            { id: 'en-21', lang: 'en', level: 'A1-A2', pos: 'Příd. jm.', word: 'healthy', phonetic: '/ˈhelθi/', translation: 'zdravý', mnemonic: 'Zelený kříž se srdcem – symbol vitality a zdraví.', exForeign: 'Eating fresh vegetables keeps you healthy.', exCs: 'Jíst čerstvou zeleninu tě udržuje zdravým.' },
+            { id: 'en-22', lang: 'en', level: 'A1-A2', pos: 'Sloveso', word: 'share', phonetic: '/ʃeə/', translation: 'sdílet, rozdělit se', mnemonic: 'Rozkrojená pizza s odděleným dílkem pro kamaráda.', exForeign: 'Let’s share a pizza for lunch.', exCs: 'Rozdělme se k obědu o pizzu.' },
+            { id: 'en-23', lang: 'en', level: 'A1-A2', pos: 'Podst. jm.', word: 'mistake', phonetic: '/mɪˈsteɪk/', translation: 'chyba, omyl', mnemonic: 'Červený křížek na papíře a guma připravená ho opravit.', exForeign: 'Everyone makes mistakes when learning a language.', exCs: 'Každý dělá chyby, když se učí jazyk.' },
+            { id: 'en-24', lang: 'en', level: 'A1-A2', pos: 'Fráze', word: 'suddenly', phonetic: '/ˈsʌdənli/', translation: 'najednou, náhle', mnemonic: 'Blesk z čistého nebe udeřící bez varování.', exForeign: 'Suddenly, all the lights went out.', exCs: 'Najednou zhasla všechna světla.' },
+            { id: 'en-25', lang: 'en', level: 'A1-A2', pos: 'Sloveso', word: 'recommend', phonetic: '/ˌrekəˈmend/', translation: 'doporučit', mnemonic: 'Zlatá medaile a palec nahoru pro nejlepší volbu.', exForeign: 'Can you recommend a good local café?', exCs: 'Můžeš mi doporučit dobrou místní kavárnu?' },
+            { id: 'en-26', lang: 'en', level: 'A1-A2', pos: 'Podst. jm.', word: 'weather', phonetic: '/ˈweðə/', translation: 'počasí', mnemonic: 'Slunce vykukující za mráčkem na obloze.', exForeign: 'The weather is supposed to be sunny tomorrow.', exCs: 'Zítra má být slunečné počasí.' },
+
+            // Angličtina B1-B2
+            { id: 'en-1', lang: 'en', level: 'B1-B2', pos: 'Sloveso', word: 'enhance', phonetic: '/ɪnˈhɑːns/', translation: 'zlepšit, zvýraznit, obohatit', mnemonic: 'Broušený drahokam zářící jasnými hvězdičkami.', exForeign: 'Good lighting can enhance the mood of a room.', exCs: 'Dobré osvětlení dokáže zlepšit atmosféru v místnosti.' },
+            { id: 'en-2', lang: 'en', level: 'B1-B2', pos: 'Příd. jm.', word: 'reliable', phonetic: '/rɪˈlaɪəbl/', translation: 'spolehlivý', mnemonic: 'Pevný ocelový štít se značkou spolehlivosti.', exForeign: 'She is a very reliable colleague.', exCs: 'Je to velmi spolehlivá kolegyně.' },
+            { id: 'en-4', lang: 'en', level: 'B1-B2', pos: 'Příd. jm.', word: 'reluctant', phonetic: '/rɪˈlʌktənt/', translation: 'neochotný, váhavý', mnemonic: 'Postava váhající před zavřenými dveřmi.', exForeign: 'He was reluctant to admit his mistake.', exCs: 'Byl neochotný přiznat svou chybu.' },
+            { id: 'en-5', lang: 'en', level: 'B1-B2', pos: 'Příd. jm.', word: 'crucial', phonetic: '/ˈkruːʃl/', translation: 'klíčový, zásadní', mnemonic: 'Zlatý klíč odemykající hlavní zámek.', exForeign: 'Sleep is crucial for memory consolidation.', exCs: 'Spánek je klíčový pro upevnění paměti.' },
+            { id: 'en-7', lang: 'en', level: 'B1-B2', pos: 'Sloveso', word: 'postpone', phonetic: '/pəʊstˈpəʊn/', translation: 'odložit (na později)', mnemonic: 'Kalendář, ze kterého šipka posouvá schůzku na později.', exForeign: 'We had to postpone the meeting until Friday.', exCs: 'Museli jsme schůzku odložit až na pátek.' },
+            { id: 'en-8', lang: 'en', level: 'B1-B2', pos: 'Fráze', word: 'nevertheless', phonetic: '/ˌnevəðəˈles/', translation: 'nicméně, přesto', mnemonic: 'Červená zeď v cestě, kterou šipka přesto přeskočí.', exForeign: 'It was raining; nevertheless, we went out.', exCs: 'Pršelo; nicméně jsme šli ven.' },
+            { id: 'en-27', lang: 'en', level: 'B1-B2', pos: 'Sloveso', word: 'overcome', phonetic: '/ˌəʊvəˈkʌm/', translation: 'překonat, zdolat', mnemonic: 'Skokan hladce přeskakující vysokou překážku.', exForeign: 'She managed to overcome her fear of public speaking.', exCs: 'Podařilo se jí překonat strach z mluvení na veřejnosti.' },
+            { id: 'en-28', lang: 'en', level: 'B1-B2', pos: 'Podst. jm.', word: 'opportunity', phonetic: '/ˌɒpəˈtjuːnəti/', translation: 'příležitost, šance', mnemonic: 'Otevřené dveře zalité zlatým světlem nové šance.', exForeign: 'This job is a great opportunity for growth.', exCs: 'Tato práce je skvělou příležitostí k růstu.' },
+            { id: 'en-29', lang: 'en', level: 'B1-B2', pos: 'Příd. jm.', word: 'essential', phonetic: '/ɪˈsenʃl/', translation: 'nezbytný, zásadní', mnemonic: 'Kapka čisté vody se srdcem – nepostradatelná pro život.', exForeign: 'Water and sunlight are essential for plants.', exCs: 'Voda a sluneční světlo jsou pro rostliny nezbytné.' },
+            { id: 'en-30', lang: 'en', level: 'B1-B2', pos: 'Sloveso', word: 'encourage', phonetic: '/ɪnˈkʌrɪdʒ/', translation: 'povzbudit, podporovat', mnemonic: 'Konev zalévající mladý stromek k růstu.', exForeign: 'Good teachers always encourage their students.', exCs: 'Dobří učitelé své studenty vždy povzbuzují.' },
+            { id: 'en-31', lang: 'en', level: 'B1-B2', pos: 'Podst. jm.', word: 'challenge', phonetic: '/ˈtʃælɪndʒ/', translation: 'výzva', mnemonic: 'Vysoká hora s klikatou stezkou a vlajkou na vrcholu.', exForeign: 'Moving to a new country was an exciting challenge.', exCs: 'Přestěhování do nové země bylo vzrušující výzvou.' },
+            { id: 'en-32', lang: 'en', level: 'B1-B2', pos: 'Sloveso', word: 'accomplish', phonetic: '/əˈkʌmplɪʃ/', translation: 'dokončit, splnit, dosáhnout', mnemonic: 'Zlatý pohár vítěze po splnění náročného cíle.', exForeign: 'We accomplished everything on our list today.', exCs: 'Dnes jsme splnili všechno z našeho seznamu.' },
+            { id: 'en-33', lang: 'en', level: 'B1-B2', pos: 'Příd. jm.', word: 'scarce', phonetic: '/skeəs/', translation: 'vzácný, nedostatkový', mnemonic: 'Poslední zrnka písku v přesýpacích hodinách.', exForeign: 'Fresh water is becoming scarce in some regions.', exCs: 'Pitná voda se v některých oblastech stává vzácnou.' },
+            { id: 'en-34', lang: 'en', level: 'B1-B2', pos: 'Fráze', word: 'in the long run', phonetic: '/ɪn ðə lɒŋ rʌn/', translation: 'z dlouhodobého hlediska', mnemonic: 'Dalekohled mířící daleko k obzoru budoucnosti.', exForeign: 'Hard work always pays off in the long run.', exCs: 'Tvrdá práce se z dlouhodobého hlediska vždy vyplatí.' },
+            { id: 'en-35', lang: 'en', level: 'B1-B2', pos: 'Sloveso', word: 'maintain', phonetic: '/meɪnˈteɪn/', translation: 'udržovat, zachovat', mnemonic: 'Montážní klíč a kladivo udržující stroj v chodu.', exForeign: 'It is important to maintain a healthy work-life balance.', exCs: 'Je důležité udržovat zdravou rovnováhu mezi prací a životem.' },
+            { id: 'en-36', lang: 'en', level: 'B1-B2', pos: 'Podst. jm.', word: 'advantage', phonetic: '/ədˈvɑːntɪdʒ/', translation: 'výhoda, přednost', mnemonic: 'Miska vah nakloněná jasně ve váš prospěch.', exForeign: 'Experience gives her a clear advantage.', exCs: 'Zkušenosti jí dávají jasnou výhodu.' },
+            { id: 'en-37', lang: 'en', level: 'B1-B2', pos: 'Sloveso', word: 'emphasize', phonetic: '/ˈemfəsaɪz/', translation: 'zdůraznit, vyzdvihnout', mnemonic: 'Zlatá hvězda zářící mezi ostatními body.', exForeign: 'The report emphasizes the need for clean energy.', exCs: 'Zpráva zdůrazňuje potřebu čisté energie.' },
+            { id: 'en-38', lang: 'en', level: 'B1-B2', pos: 'Podst. jm.', word: 'commitment', phonetic: '/kəˈmɪtmənt/', translation: 'závazek, odhodlání, nasazení', mnemonic: 'Podání rukou stvrzující pevný závazek.', exForeign: 'Learning a skill takes time and commitment.', exCs: 'Naučit se dovednost vyžaduje čas a odhodlání.' },
+            { id: 'en-39', lang: 'en', level: 'B1-B2', pos: 'Fráze', word: 'despite', phonetic: '/dɪˈspaɪt/', translation: 'navzdory, i přes', mnemonic: 'Pevný deštník chránící před hustým deštěm.', exForeign: 'They enjoyed the hike despite the cold wind.', exCs: 'Túra se jim líbila i přes studený vítr.' },
+            { id: 'en-40', lang: 'en', level: 'B1-B2', pos: 'Podst. jm.', word: 'environment', phonetic: '/ɪnˈvaɪrənmənt/', translation: 'prostředí, životní prostředí', mnemonic: 'Zelené stromy a čistá příroda obklopující domov.', exForeign: 'A quiet environment helps me concentrate.', exCs: 'Klidné prostředí mi pomáhá se soustředit.' }
+        ];
+
+        // --- ROZŠÍŘENÁ ZABUDOVANÁ SLOVNÍ ZÁSOBA (A1-A2 & B1-B2 ES + EN) ---
+        const extendedVocabularyPack = [
+            ['es','A1-A2','Podst. jm.','la casa','/la ka-sa/','dům, domov','home','Vivo en una casa pequeña cerca del parque.','Bydlím v malém domě blízko parku.'],
+            ['es','A1-A2','Podst. jm.','la familia','/la fa-mi-lja/','rodina','people','Mi familia vive en otra ciudad.','Moje rodina žije v jiném městě.'],
+            ['es','A1-A2','Podst. jm.','el amigo','/el a-mi-go/','přítel, kamarád','people','Carlos es mi mejor amigo desde la infancia.','Carlos je můj nejlepší přítel od dětství.'],
+            ['es','A1-A2','Podst. jm.','el trabajo','/el tra-ba-cho/','práce, zaměstnání','work','Empiezo mi nuevo trabajo el lunes.','Svou novou práci začínám v pondělí.'],
+            ['es','A1-A2','Podst. jm.','el dinero','/el di-ne-ro/','peníze','money','No tengo suficiente dinero en efectivo.','Nemám u sebe dostatek hotovosti.'],
+            ['es','A1-A2','Podst. jm.','la comida','/la ko-mi-da/','jídlo, oběd','food','La comida española es muy variada.','Španělská kuchyně je velmi pestrá.'],
+            ['es','A1-A2','Podst. jm.','el agua','/el a-gwa/','voda','water','Necesito beber un vaso de agua fría.','Potřebuji se napít sklenice studené vody.'],
+            ['es','A1-A2','Podst. jm.','el café','/el ka-fe/','káva, kavárna','food','Tomo un café con leche cada mañana.','Každé ráno si dávám kávu s mlékem.'],
+            ['es','A1-A2','Podst. jm.','la tienda','/la tjen-da/','obchod','money','La tienda cierra a las ocho de la tarde.','Obchod zavírá v osm hodin večer.'],
+            ['es','A1-A2','Podst. jm.','la calle','/la ka-je/','ulice','travel','Hay mucha gente en esta calle hoy.','Dnes je na této ulici hodně lidí.'],
+            ['es','A1-A2','Podst. jm.','la ciudad','/la sju-dad/','město','travel','Praga es una ciudad muy bonita.','Praha je velmi krásné město.'],
+            ['es','A1-A2','Podst. jm.','el país','/el pa-is/','země, stát','travel','¿Qué país te gustaría visitar?','Jakou zemi bys rád navštívil?'],
+            ['es','A1-A2','Podst. jm.','el aeropuerto','/el a-e-ro-pwer-to/','letiště','travel','Llegamos al aeropuerto dos horas antes.','Na letiště jsme dorazili o dvě hodiny dříve.'],
+            ['es','A1-A2','Podst. jm.','el tren','/el tren/','vlak','travel','El tren sale de la estación central.','Vlak odjíždí z hlavního nádraží.'],
+            ['es','A1-A2','Podst. jm.','la estación','/la es-ta-sjon/','stanice, nádraží, roční období','travel','La estación de metro está a la vuelta.','Stanice metra je hned za rohem.'],
+            ['es','A1-A2','Podst. jm.','el hotel','/el o-tel/','hotel','travel','Reservamos un hotel cerca de la playa.','Rezervovali jsme si hotel blízko pláže.'],
+            ['es','A1-A2','Podst. jm.','la playa','/la pla-ja/','pláž','nature','En verano vamos mucho a la playa.','V létě chodíme často na pláž.'],
+            ['es','A1-A2','Podst. jm.','el tiempo','/el tjem-po/','čas, počasí','time','No tengo mucho tiempo libre esta semana.','Tento týden nemám moc volného času.'],
+            ['es','A1-A2','Podst. jm.','la semana','/la se-ma-na/','týden','time','La próxima semana tengo vacaciones.','Příští týden mám dovolenou.'],
+            ['es','A1-A2','Podst. jm.','el año','/el a-ňo/','rok','time','Este año quiero viajar más.','Letos chci více cestovat.'],
+            ['es','A1-A2','Podst. jm.','la mañana','/la ma-ňa-na/','ráno, dopoledne','time','Estudio español por la mañana.','Španělštinu se učím ráno.'],
+            ['es','A1-A2','Podst. jm.','la noche','/la no-če/','noc, večer','time','Buenas noches, que descanses bien.','Dobrou noc, dobře si odpočiň.'],
+            ['es','A1-A2','Podst. jm.','el libro','/el li-bro/','kniha','study','Estoy leyendo un libro muy interesante.','Čtu velmi zajímavou knihu.'],
+            ['es','A1-A2','Podst. jm.','la palabra','/la pa-la-bra/','slovo','study','No conozco el significado de esta palabra.','Neznám význam tohoto slova.'],
+            ['es','A1-A2','Podst. jm.','la pregunta','/la pre-gun-ta/','otázka','idea','¿Puedo hacerte una pregunta rápida?','Mohu ti položit rychlou otázku?'],
+            ['es','A1-A2','Podst. jm.','la respuesta','/la res-pwes-ta/','odpověď','idea','Todavía espero su respuesta por correo.','Stále čekám na jeho odpověď e-mailem.'],
+            ['es','A1-A2','Podst. jm.','el problema','/el pro-ble-ma/','problém','alert','No hay ningún problema, lo resolvemos.','Žádný problém, vyřešíme to.'],
+            ['es','A1-A2','Podst. jm.','la idea','/la i-de-a/','nápad, myšlenka','idea','¡Qué buena idea has tenido!','Jaký skvělý nápad jsi dostal!'],
+            ['es','A1-A2','Podst. jm.','el teléfono','/el te-le-fo-no/','telefon','work','Dejé mi teléfono encima de la mesa.','Nechal jsem svůj telefon na stole.'],
+            ['es','A1-A2','Podst. jm.','la ropa','/la ro-pa/','oblečení','travel','Necesito comprar ropa de invierno.','Potřebuji koupit zimní oblečení.'],
+            ['es','A1-A2','Sloveso','hablar','/a-blar/','mluvit, hovořit','people','Hablo un poco de español e inglés.','Mluvím trochu španělsky a anglicky.'],
+            ['es','A1-A2','Sloveso','comer','/ko-mer/','jíst, obědvat','food','¿A qué hora sueles comer?','V kolik hodin obvykle obědváš?'],
+            ['es','A1-A2','Sloveso','beber','/be-ber/','pít','water','Es importante beber mucha agua al día.','Je důležité pít hodně vody denně.'],
+            ['es','A1-A2','Sloveso','vivir','/bi-bir/','žít, bydlet','home','Mis padres viven en el campo.','Moji rodiče bydlí na venkově.'],
+            ['es','A1-A2','Sloveso','trabajar','/tra-ba-char/','pracovat','work','Trabajo desde casa los viernes.','V pátek pracuji z domova.'],
+            ['es','A1-A2','Sloveso','estudiar','/es-tu-djar/','studovat, učit se','study','Estudio vocabulario diez minutos cada día.','Slovíčka se učím deset minut každý den.'],
+            ['es','A1-A2','Sloveso','aprender','/a-pren-der/','naučit se','study','Aprender idiomas abre muchas puertas.','Učení jazyků otevírá mnoho dveří.'],
+            ['es','A1-A2','Sloveso','comprar','/kom-prar/','koupit, nakupovat','money','Voy al mercado a comprar fruta fresca.','Jdu na trh koupit čerstvé ovoce.'],
+            ['es','A1-A2','Sloveso','pagar','/pa-gar/','platit, zaplatit','money','¿Puedo pagar con tarjeta aquí?','Mohu zde zaplatit kartou?'],
+            ['es','A1-A2','Sloveso','viajar','/bja-char/','cestovat','travel','Me encanta viajar en tren por Europa.','Miluji cestování vlakem po Evropě.'],
+            ['es','A1-A2','Sloveso','llegar','/je-gar/','přijet, dorazit','travel','El autobús llega en cinco minutos.','Autobus přijede za pět minut.'],
+            ['es','A1-A2','Sloveso','salir','/sa-lir/','vyjít, odjet, jít ven','travel','Salimos de casa a las ocho.','Z domu odcházíme v osm hodin.'],
+            ['es','A1-A2','Sloveso','volver','/bol-ber/','vrátit se','travel','Vuelvo a casa después del trabajo.','Domů se vracím po práci.'],
+            ['es','A1-A2','Sloveso','empezar','/em-pe-sar/','začít','time','La película empieza a las nueve.','Film začíná v devět hodin.'],
+            ['es','A1-A2','Sloveso','terminar','/ter-mi-nar/','skončit, dokončit','success','Termino mi turno a las cinco.','Svou směnu končím v pět hodin.'],
+            ['es','A1-A2','Sloveso','ayudar','/a-ju-dar/','pomoci, pomáhat','people','¿Me puedes ayudar con estas maletas?','Můžeš mi pomoct s těmito kufry?'],
+            ['es','A1-A2','Sloveso','necesitar','/ne-se-si-tar/','potřebovat','alert','Necesito descansar un poco hoy.','Potřebuji si dnes trochu odpočinout.'],
+            ['es','A1-A2','Sloveso','querer','/ke-rer/','chtít, milovat','idea','Quiero pedir una mesa para dos.','Chci objednat stůl pro dva.'],
+            ['es','A1-A2','Sloveso','poder','/po-der/','moci, umět','success','No puedo ir a la fiesta mañana.','Zítra nemohu jít na oslavu.'],
+            ['es','A1-A2','Sloveso','saber','/sa-ber/','vědět, umět','idea','¿Sabes dónde está la farmacia?','Víš, kde je lékárna?'],
+            ['es','A1-A2','Sloveso','conocer','/ko-no-ser/','znát, poznat','people','Conozco muy bien el centro de la ciudad.','Centrum města znám velmi dobře.'],
+            ['es','A1-A2','Sloveso','pensar','/pen-sar/','myslet, přemýšlet','idea','Pienso que es una buena decisión.','Myslím, že je to dobré rozhodnutí.'],
+            ['es','A1-A2','Sloveso','encontrar','/en-kon-trar/','najít, potkat','search','No encuentro mis gafas por ningún lado.','Nikde nemohu najít své brýle.'],
+            ['es','A1-A2','Sloveso','abrir','/a-brir/','otevřít','door','Por favor, abre la ventana un momento.','Prosím, otevři na chvilku okno.'],
+            ['es','A1-A2','Sloveso','cerrar','/se-rar/','zavřít','door','No olvides cerrar la puerta con llave.','Nezapomeň zamknout dveře klíčem.'],
+            ['es','A1-A2','Sloveso','esperar','/es-pe-rar/','čekat, doufat','time','Te espero delante del cine.','Čekám na tebe před kinem.'],
+            ['es','A1-A2','Sloveso','escuchar','/es-ku-čar/','poslouchat','study','Me gusta escuchar música mientras cocino.','Rád poslouchám hudbu, když vařím.'],
+            ['es','A1-A2','Sloveso','mirar','/mi-rar/','dívat se, podívat se','search','Mira qué vista tan espectacular.','Podívej, jaký velkolepý výhled.'],
+            ['es','A1-A2','Sloveso','escribir','/es-kri-bir/','psát','study','Te escribo un mensaje cuando llegue.','Napíšu ti zprávu, až dorazím.'],
+            ['es','A1-A2','Sloveso','leer','/le-er/','číst','study','Leo las noticias cada mañana.','Každé ráno čtu zprávy.'],
+            ['es','A1-A2','Příd. jm.','importante','/im-por-tan-te/','důležitý','alert','Es muy importante dormir ocho horas.','Je velmi důležité spát osm hodin.'],
+            ['es','A1-A2','Příd. jm.','fácil','/fa-sil/','snadný, lehký','success','Este ejercicio es bastante fácil.','Toto cvičení je docela snadné.'],
+            ['es','A1-A2','Příd. jm.','difícil','/di-fi-sil/','těžký, obtížný','alert','La pronunciación no es tan difícil.','Výslovnost není tak těžká.'],
+            ['es','A1-A2','Příd. jm.','rápido','/ra-pi-do/','rychlý','growth','El tren de alta velocidad es muy rápido.','Vysokorychlostní vlak je velmi rychlý.'],
+            ['es','A1-A2','Příd. jm.','lento','/len-to/','pomalý','time','El tráfico está muy lento hoy.','Doprava je dnes velmi pomalá.'],
+            ['es','A1-A2','Příd. jm.','caro','/ka-ro/','drahý','money','Vivir en el centro es demasiado caro.','Bydlení v centru je příliš drahé.'],
+            ['es','A1-A2','Příd. jm.','limpio','/lim-pjo/','čistý','nature','La habitación está muy limpia y ordenada.','Pokoj je velmi čistý a uklizený.'],
+            ['es','A1-A2','Příd. jm.','sucio','/su-sjo/','špinavý','alert','El coche está sucio después de la lluvia.','Auto je po dešti špinavé.'],
+            ['es','A1-A2','Příd. jm.','nuevo','/nwe-bo/','nový','growth','Compré un ordenador nuevo ayer.','Včera jsem si koupil nový počítač.'],
+            ['es','A1-A2','Příd. jm.','viejo','/bje-cho/','starý','time','Ese edificio tiene más de cien años.','Ta budova je stará více než sto let.'],
+            ['es','A1-A2','Příd. jm.','feliz','/fe-lis/','šťastný','success','Estoy muy feliz con los resultados.','Jsem s výsledky velmi šťastný.'],
+            ['es','A1-A2','Příd. jm.','cansado','/kan-sa-do/','unavený','time','Estoy cansado después de caminar tanto.','Po tak dlouhé chůzi jsem unavený.'],
+            ['es','A1-A2','Příd. jm.','abierto','/a-bjer-to/','otevřený','door','El supermercado está abierto los domingos.','Supermarket je v neděli otevřený.'],
+            ['es','A1-A2','Příd. jm.','cerrado','/se-ra-do/','zavřený','door','El banco está cerrado por la tarde.','Banka je odpoledne zavřená.'],
+            ['es','A1-A2','Fráze','por favor','/por fa-bor/','prosím','people','Un café con leche, por favor.','Jednu kávu s mlékem, prosím.'],
+            ['es','A1-A2','Fráze','muchas gracias','/mu-čas gra-sjas/','děkuji mnohokrát','success','Muchas gracias por tu amabilidad.','Děkuji mnohokrát za tvou laskavost.'],
+            ['es','A1-A2','Fráze','de nada','/de na-da/','není zač','success','— Gracias por todo. — De nada.','— Děkuji za všechno. — Není zač.'],
+            ['es','A1-A2','Fráze','lo siento','/lo sjen-to/','omlouvám se, je mi líto','alert','Lo siento mucho, llegué tarde.','Moc se omlouvám, přišel jsem pozdě.'],
+            ['es','A1-A2','Fráze','a veces','/a be-ses/','občas, někdy','time','A veces trabajo desde una cafetería.','Občas pracuji z kavárny.'],
+            ['es','A1-A2','Fráze','siempre','/sjem-pre/','vždy, vždycky','time','Ella siempre llega puntual a clase.','Ona vždy chodí na hodinu přesně.'],
+            ['es','A1-A2','Fráze','nunca','/nun-ka/','nikdy','alert','Nunca he estado en Sudamérica.','Nikdy jsem nebyl v Jižní Americe.'],
+            ['es','A1-A2','Fráze','ahora mismo','/a-o-ra mis-mo/','právě teď, hned teď','time','Estoy ocupada ahora mismo, te llamo luego.','Právě teď mám práci, zavolám ti později.'],
+            ['es','A1-A2','Fráze','tal vez','/tal bes/','možná, snad','idea','Tal vez vayamos al cine esta noche.','Možná půjdeme dnes večer do kina.'],
+            ['es','A1-A2','Fráze','en seguida','/en se-gi-da/','ihned, za chvilku','growth','Vuelvo en seguida, no te vayas.','Hned jsem zpátky, neodcházej.'],
+
+            // Španělština B1-B2
+            ['es','B1-B2','Sloveso','conseguir','/kon-se-gir/','dosáhnout, získat, sehnat','success','Conseguimos entradas para el concierto.','Sehnali jsme lístky na koncert.'],
+            ['es','B1-B2','Sloveso','evitar','/e-bi-tar/','vyhnout se, zabránit','alert','Es mejor evitar el centro en hora punta.','Je lepší vyhnout se centru ve špičce.'],
+            ['es','B1-B2','Sloveso','proponer','/pro-po-ner/','navrhnout','idea','Te propongo reunirnos mañana por la tarde.','Navrhuji sejít se zítra odpoledne.'],
+            ['es','B1-B2','Sloveso','mantener','/man-te-ner/','udržovat, zachovat','work','Es clave mantener la calma bajo presión.','Je klíčové zachovat klid pod tlakem.'],
+            ['es','B1-B2','Sloveso','reducir','/re-du-sir/','snížit, omezit','growth','Queremos reducir el consumo de plástico.','Chceme omezit spotřebu plastů.'],
+            ['es','B1-B2','Sloveso','resolver','/re-sol-ber/','vyřešit','success','Logramos resolver el fallo técnico rápido.','Technickou chybu se nám podařilo rychle vyřešit.'],
+            ['es','B1-B2','Sloveso','apoyar','/a-po-jar/','podpořit, opřít se','people','Mis amigos siempre apoyan mis proyectos.','Moji přátelé vždy podporují mé projekty.'],
+            ['es','B1-B2','Podst. jm.','el éxito','/el ek-si-to/','úspěch','success','La clave del éxito es la constancia.','Klíčem k úspěchu je vytrvalost.'],
+            ['es','B1-B2','Podst. jm.','el fracaso','/el fra-ka-so/','neúspěch, selhání','alert','Cada fracaso enseña algo valioso.','Každý neúspěch naučí něco cenného.'],
+            ['es','B1-B2','Podst. jm.','la oportunidad','/la o-por-tu-ni-dad/','příležitost, šance','door','Esta beca es una oportunidad única.','Toto stipendium je jedinečná příležitost.'],
+            ['es','B1-B2','Podst. jm.','el desarrollo','/el de-sa-ro-jo/','rozvoj, vývoj','growth','El desarrollo tecnológico avanza sin parar.','Technologický rozvoj postupuje bez zastavení.'],
+            ['es','B1-B2','Příd. jm.','adecuado','/a-de-kwa-do/','vhodný, přiměřený','success','No era el momento adecuado para hablar.','Nebyl to vhodný okamžik k rozhovoru.'],
+            ['es','B1-B2','Příd. jm.','eficaz','/e-fi-kas/','účinný, efektivní','growth','Este método de estudio es muy eficaz.','Tato metoda studia je velmi účinná.'],
+            ['es','B1-B2','Fráze','a través de','/a tra-bes de/','prostřednictvím, skrz','travel','Aprendí mucho a través de la práctica.','Hodně jsem se naučil prostřednictvím praxe.'],
+            ['es','B1-B2','Fráze','en cambio','/en kam-bjo/','naopak, naproti tomu','idea','Él prefiere el frío; yo, en cambio, el calor.','On dává přednost chladu; já naopak teplu.'],
+
+            // Angličtina A1-A2
+            ['en','A1-A2','Podst. jm.','home','/həʊm/','domov, dům','home','I usually get home around six o’clock.','Domů se obvykle dostanu kolem šesté hodiny.'],
+            ['en','A1-A2','Podst. jm.','family','/ˈfæməli/','rodina','people','My whole family lives near Prague.','Celá moje rodina žije poblíž Prahy.'],
+            ['en','A1-A2','Podst. jm.','friend','/frend/','přítel, kamarád','people','I am meeting an old friend for coffee.','Jdu se sejít se starým přítelem na kávu.'],
+            ['en','A1-A2','Podst. jm.','work','/wɜːk/','práce, zaměstnání','work','She goes to work by train every day.','Každý den jezdí do práce vlakem.'],
+            ['en','A1-A2','Podst. jm.','money','/ˈmʌni/','peníze','money','Saving money takes patience and planning.','Šetření peněz vyžaduje trpělivost a plánování.'],
+            ['en','A1-A2','Podst. jm.','food','/fuːd/','jídlo, potrava','food','We tried some delicious local food.','Ochutnali jsme výborné místní jídlo.'],
+            ['en','A1-A2','Podst. jm.','water','/ˈwɔːtə/','voda','water','Could I have a glass of water, please?','Mohl bych dostat sklenici vody, prosím?'],
+            ['en','A1-A2','Podst. jm.','breakfast','/ˈbrekfəst/','snídaně','food','I always have eggs and coffee for breakfast.','Ke snídani mám vždy vejce a kávu.'],
+            ['en','A1-A2','Podst. jm.','shop','/ʃɒp/','obchod','money','The bakery shop opens at seven.','Pekařství otevírá v sedm hodin.'],
+            ['en','A1-A2','Podst. jm.','street','/striːt/','ulice','travel','Our office is on the main street.','Naše kancelář je na hlavní ulici.'],
+            ['en','A1-A2','Podst. jm.','city','/ˈsɪti/','velkoměsto, město','travel','London is a very busy city.','Londýn je velmi rušné město.'],
+            ['en','A1-A2','Podst. jm.','country','/ˈkʌntri/','země, stát, venkov','travel','Spain is my favourite holiday country.','Španělsko je moje nejoblíbenější země na dovolenou.'],
+            ['en','A1-A2','Podst. jm.','airport','/ˈeəpɔːt/','letiště','travel','We arrived at the airport early.','Na letiště jsme dorazili brzy.'],
+            ['en','A1-A2','Podst. jm.','ticket','/ˈtɪkɪt/','jízdenka, vstupenka, letenka','travel','I bought a return ticket online.','Koupil jsem si zpáteční jízdenku online.'],
+            ['en','A1-A2','Podst. jm.','station','/ˈsteɪʃn/','nádraží, stanice','travel','The train station is ten minutes away.','Vlakové nádraží je deset minut daleko.'],
+            ['en','A1-A2','Podst. jm.','time','/taɪm/','čas, doba','time','Do you have time for a quick chat?','Máš čas na krátký rozhovor?'],
+            ['en','A1-A2','Podst. jm.','week','/wiːk/','týden','time','We are going on holiday next week.','Příští týden jedeme na dovolenou.'],
+            ['en','A1-A2','Podst. jm.','morning','/ˈmɔːnɪŋ/','ráno, dopoledne','time','I feel most energetic in the morning.','Nejvíce energie mám ráno.'],
+            ['en','A1-A2','Podst. jm.','book','/bʊk/','kniha','study','This book is really easy to read.','Tato kniha se čte opravdu snadno.'],
+            ['en','A1-A2','Podst. jm.','question','/ˈkwestʃən/','otázka','idea','That is a very good question.','To je velmi dobrá otázka.'],
+            ['en','A1-A2','Podst. jm.','answer','/ˈɑːnsə/','odpověď','idea','I still do not know the right answer.','Stále neznám správnou odpověď.'],
+            ['en','A1-A2','Podst. jm.','idea','/aɪˈdɪə/','nápad, myšlenka','idea','Starting small is a great idea.','Začít v malém je skvělý nápad.'],
+            ['en','A1-A2','Sloveso','speak','/spiːk/','mluvit, hovořit','people','Do you speak English or Spanish?','Mluvíš anglicky nebo španělsky?'],
+            ['en','A1-A2','Sloveso','learn','/lɜːn/','učit se, naučit se','study','Children learn languages very quickly.','Děti se učí jazyky velmi rychle.'],
+            ['en','A1-A2','Sloveso','understand','/ˌʌndəˈstænd/','rozumět, chápat','idea','Now I understand what you mean.','Teď už rozumím, co tím myslíš.'],
+            ['en','A1-A2','Sloveso','buy','/baɪ/','koupit','money','I need to buy some fresh bread.','Potřebuji koupit čerstvý chléb.'],
+            ['en','A1-A2','Sloveso','pay','/peɪ/','platit, zaplatit','money','Can I pay by card here?','Mohu zde zaplatit kartou?'],
+            ['en','A1-A2','Sloveso','travel','/ˈtrævl/','cestovat','travel','I love to travel to new places.','Rád cestuji na nová místa.'],
+            ['en','A1-A2','Sloveso','arrive','/əˈraɪv/','přijet, dorazit','travel','What time does your train arrive?','V kolik hodin přijíždí tvůj vlak?'],
+            ['en','A1-A2','Sloveso','leave','/liːv/','odejít, odjet, nechat','travel','We leave the house at eight every day.','Z domu odcházíme každý den v osm.'],
+            ['en','A1-A2','Sloveso','return','/rɪˈtɜːn/','vrátit se, vrátit','travel','We will return on Sunday evening.','Vrátíme se v neděli večer.'],
+            ['en','A1-A2','Sloveso','start','/stɑːt/','začít, spustit','growth','Let’s start the lesson now.','Začněme teď lekci.'],
+            ['en','A1-A2','Sloveso','finish','/ˈfɪnɪʃ/','dokončit, skončit','success','I usually finish work at five.','Práci obvykle končím v pět hodin.'],
+            ['en','A1-A2','Sloveso','help','/help/','pomoci, pomáhat','people','Thank you for helping me today.','Děkuji, že jsi mi dnes pomohl.'],
+            ['en','A1-A2','Sloveso','need','/niːd/','potřebovat','alert','I need a few minutes to think.','Potřebuji pár minut na rozmyšlenou.'],
+            ['en','A1-A2','Sloveso','choose','/tʃuːz/','vybrat si, zvolit','door','You can choose whichever option you prefer.','Můžeš si vybrat jakoukoli možnost chceš.'],
+            ['en','A1-A2','Sloveso','find','/faɪnd/','najít','search','Did you find your keys?','Našel jsi své klíče?'],
+            ['en','A1-A2','Sloveso','forget','/fəˈɡet/','zapomenout','alert','Don’t forget to lock the door.','Nezapomeň zamknout dveře.'],
+            ['en','A1-A2','Sloveso','remember','/rɪˈmembə/','pamatovat si, vzpomenout si','idea','I always remember faces better than names.','Obličeje si vždy pamatuji lépe než jména.'],
+            ['en','A1-A2','Sloveso','open','/ˈəʊpən/','otevřít','door','Could you open the window, please?','Mohl bys prosím otevřít okno?'],
+            ['en','A1-A2','Sloveso','close','/kləʊz/','zavřít','door','Please close the door behind you.','Prosím, zavři za sebou dveře.'],
+            ['en','A1-A2','Sloveso','wait','/weɪt/','čekat','time','I will wait for you at the entrance.','Počkám na tebe u vchodu.'],
+            ['en','A1-A2','Příd. jm.','important','/ɪmˈpɔːtnt/','důležitý','alert','Practice is the most important part.','Procvičování je nejdůležitější část.'],
+            ['en','A1-A2','Příd. jm.','easy','/ˈiːzi/','snadný, lehký','success','The app is very easy to use.','Aplikace se používá velmi snadno.'],
+            ['en','A1-A2','Příd. jm.','difficult','/ˈdɪfɪkəlt/','těžký, obtížný','alert','Grammar can be difficult at first.','Gramatika může být ze začátku těžká.'],
+            ['en','A1-A2','Příd. jm.','fast','/fɑːst/','rychlý, rychle','growth','That was a very fast reply.','To byla velmi rychlá odpověď.'],
+            ['en','A1-A2','Příd. jm.','slow','/sləʊ/','pomalý','time','Internet is a bit slow today.','Internet je dnes trochu pomalý.'],
+            ['en','A1-A2','Příd. jm.','cheap','/tʃiːp/','levný','money','Bus tickets are quite cheap here.','Jízdenky na autobus jsou tu docela levné.'],
+            ['en','A1-A2','Příd. jm.','expensive','/ɪkˈspensɪv/','drahý','money','That restaurant is too expensive.','Ta restaurace je příliš drahá.'],
+            ['en','A1-A2','Příd. jm.','clean','/kliːn/','čistý','nature','Keep your desk clean and tidy.','Udržuj svůj stůl čistý a uklizený.'],
+            ['en','A1-A2','Příd. jm.','safe','/seɪf/','bezpečný','success','This neighbourhood is very safe at night.','Tato čtvrť je v noci velmi bezpečná.'],
+            ['en','A1-A2','Příd. jm.','dangerous','/ˈdeɪndʒərəs/','nebezpečný','alert','Driving in heavy fog is dangerous.','Řízení v husté mlze je nebezpečné.'],
+            ['en','A1-A2','Fráze','of course','/əv kɔːs/','samozřejmě, jistě','success','Of course I can help you with that.','Samozřejmě ti s tím mohu pomoct.'],
+            ['en','A1-A2','Fráze','sometimes','/ˈsʌmtaɪmz/','někdy, občas','time','Sometimes I study on the train.','Někdy se učím ve vlaku.'],
+            ['en','A1-A2','Fráze','always','/ˈɔːlweɪz/','vždy, vždycky','time','She always drinks tea in the afternoon.','Odpoledne pije vždy čaj.'],
+            ['en','A1-A2','Fráze','never','/ˈnevə/','nikdy','alert','I have never been to Madrid.','Nikdy jsem nebyl v Madridu.'],
+            ['en','A1-A2','Fráze','right now','/raɪt naʊ/','právě teď','time','I am learning new words right now.','Právě teď se učím nová slovíčka.'],
+            ['en','A1-A2','Fráze','maybe','/ˈmeɪbi/','možná','idea','Maybe we can go tomorrow instead.','Možná můžeme jít místo toho zítra.'],
+
+            // Angličtina B1-B2
+            ['en','B1-B2','Sloveso','improve','/ɪmˈpruːv/','zlepšit, zdokonalit','growth','Reading daily will improve your vocabulary.','Každodenní čtení zlepší tvou slovní zásobu.'],
+            ['en','B1-B2','Sloveso','avoid','/əˈvɔɪd/','vyhnout se, předejít','alert','Try to avoid repeating the same words.','Snaž se vyhnout opakování stejných slov.'],
+            ['en','B1-B2','Sloveso','suggest','/səˈdʒest/','navrhnout, doporučit','idea','I suggest taking a short break.','Navrhuji dát si krátkou pauzu.'],
+            ['en','B1-B2','Sloveso','reduce','/rɪˈdjuːs/','snížit, omezit','growth','We need to reduce unnecessary stress.','Musíme snížit zbytečný stres.'],
+            ['en','B1-B2','Sloveso','solve','/sɒlv/','vyřešit','success','Together we can solve this problem easily.','Společně tento problém snadno vyřešíme.'],
+            ['en','B1-B2','Sloveso','support','/səˈpɔːt/','podpořit, podporovat','people','Thank you for supporting my decision.','Děkuji, že podporuješ mé rozhodnutí.'],
+            ['en','B1-B2','Podst. jm.','success','/səkˈses/','úspěch','success','Consistency is the secret to success.','Důslednost je tajemstvím úspěchu.'],
+            ['en','B1-B2','Podst. jm.','solution','/səˈluːʃn/','řešení','idea','We finally found a practical solution.','Konečně jsme našli praktické řešení.'],
+            ['en','B1-B2','Podst. jm.','progress','/ˈprəʊɡres/','pokrok, postup','growth','You are making great progress every week.','Každý týden děláš skvělý pokrok.'],
+            ['en','B1-B2','Příd. jm.','efficient','/ɪˈfɪʃnt/','efektivní, výkonný','growth','Spaced repetition is a very efficient method.','Rozložené opakování je velmi efektivní metoda.'],
+            ['en','B1-B2','Příd. jm.','suitable','/ˈsuːtəbl/','vhodný','success','This course is suitable for beginners.','Tento kurz je vhodný pro začátečníky.'],
+            ['en','B1-B2','Fráze','on the other hand','/ɒn ði ˈʌðə hænd/','na druhou stranu','idea','It is pricey; on the other hand, it lasts long.','Je to drahé; na druhou stranu to dlouho vydrží.'],
+            ['en','B1-B2','Fráze','in addition','/ɪn əˈdɪʃn/','kromě toho, navíc','growth','In addition, the app works offline.','Navíc aplikace funguje i offline.']
+        ];
+
+        const categoryVisualTemplates = {
+            home: {
+                mnemonic: 'Útulný dům se střechou a okny jako bezpečné zázemí.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#FEF3C7"/><path d="M36 96L100 42l64 54" fill="none" stroke="#B45309" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><rect x="54" y="92" width="92" height="72" rx="8" fill="#F59E0B"/><rect x="88" y="122" width="24" height="42" rx="4" fill="#78350F"/><rect x="66" y="106" width="18" height="18" rx="3" fill="#FEF9C3"/><rect x="116" y="106" width="18" height="18" rx="3" fill="#FEF9C3"/></svg>`
+            },
+            people: {
+                mnemonic: 'Dva lidé v přátelském rozhovoru a vzájemné podpoře.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#E0F2FE"/><circle cx="72" cy="76" r="20" fill="#0284C7"/><path d="M38 156c0-24 15-38 34-38s34 14 34 38" fill="#0284C7"/><circle cx="132" cy="82" r="18" fill="#38BDF8"/><path d="M102 156c0-21 13-34 30-34s30 13 30 34" fill="#38BDF8"/></svg>`
+            },
+            work: {
+                mnemonic: 'Pracovní kufřík připravený na každodenní úkoly.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#EEF2FF"/><path d="M78 62V46h44v16" fill="none" stroke="#4338CA" stroke-width="9" stroke-linecap="round"/><rect x="38" y="62" width="124" height="94" rx="14" fill="#4F46E5"/><path d="M38 102h124" stroke="#A5B4FC" stroke-width="6"/><rect x="90" y="94" width="20" height="16" rx="4" fill="#FACC15"/></svg>`
+            },
+            money: {
+                mnemonic: 'Zlaté mince jako symbol hodnoty, obchodu a platby.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#DCFCE7"/><circle cx="84" cy="106" r="42" fill="#EAB308" stroke="#CA8A04" stroke-width="7"/><circle cx="122" cy="92" r="36" fill="#FACC15" stroke="#CA8A04" stroke-width="6"/><path d="M122 74v36M113 82h18M113 102h18" stroke="#854D0E" stroke-width="6" stroke-linecap="round"/></svg>`
+            },
+            food: {
+                mnemonic: 'Talíř s teplým jídlem a příborem připravený ke stolu.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#FFEDD5"/><circle cx="100" cy="106" r="52" fill="#FFFFFF" stroke="#FDBA74" stroke-width="7"/><circle cx="100" cy="106" r="32" fill="#FB923C"/><path d="M34 66v76M166 66v76" stroke="#9A3412" stroke-width="8" stroke-linecap="round"/></svg>`
+            },
+            water: {
+                mnemonic: 'Čistá osvěžující kapka vody.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#DBEAFE"/><path d="M100 34c26 36 44 62 44 86a44 44 0 01-88 0c0-24 18-50 44-86z" fill="#2563EB"/><path d="M78 114c0-10 5-20 12-30" fill="none" stroke="#93C5FD" stroke-width="7" stroke-linecap="round"/></svg>`
+            },
+            travel: {
+                mnemonic: 'Kompas a cesta směřující k novému cíli.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#E0F2FE"/><circle cx="100" cy="100" r="60" fill="#FFFFFF" stroke="#0284C7" stroke-width="10"/><path d="M124 76l-16 32-32 16 16-32 32-16z" fill="#EF4444"/><circle cx="100" cy="100" r="6" fill="#0F172A"/></svg>`
+            },
+            nature: {
+                mnemonic: 'Slunce nad zelenou krajinou a čistým vzduchem.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#DCFCE7"/><circle cx="144" cy="48" r="20" fill="#FACC15"/><path d="M24 156c24-38 56-38 80 0 22-30 50-30 72 0v20H24v-20z" fill="#16A34A"/></svg>`
+            },
+            time: {
+                mnemonic: 'Hodiny odměřující každodenní čas a plánování.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#F3E8FF"/><circle cx="100" cy="100" r="60" fill="#FFFFFF" stroke="#7E22CE" stroke-width="11"/><path d="M100 62v38l26 16" fill="none" stroke="#581C87" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+            },
+            study: {
+                mnemonic: 'Otevřená kniha plná nových znalostí a slov.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#E0E7FF"/><path d="M36 58c22-10 44-10 64 6 20-16 42-16 64-6v88c-22-10-44-10-64 6-20-16-42-16-64-6V58z" fill="#4F46E5"/><path d="M100 64v88" stroke="#C7D2FE" stroke-width="6"/></svg>`
+            },
+            idea: {
+                mnemonic: 'Rozsvícená žárovka jasné myšlenky a porozumění.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#FEF9C3"/><path d="M68 98a32 32 0 1164 0c0 14-8 22-13 32H81c-5-10-13-18-13-32z" fill="#FACC15"/><rect x="84" y="136" width="32" height="10" rx="5" fill="#854D0E"/><path d="M100 24v16M40 94h16M144 94h16" stroke="#EAB308" stroke-width="8" stroke-linecap="round"/></svg>`
+            },
+            alert: {
+                mnemonic: 'Výstražný vykřičník upozorňující na důležitý bod.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#FEE2E2"/><circle cx="100" cy="100" r="60" fill="#EF4444"/><path d="M100 62v46" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round"/><circle cx="100" cy="132" r="8" fill="#FFFFFF"/></svg>`
+            },
+            success: {
+                mnemonic: 'Zelená značka úspěchu a správně splněného cíle.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#DCFCE7"/><circle cx="100" cy="100" r="60" fill="#16A34A"/><path d="M70 102l20 20 42-42" fill="none" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+            },
+            growth: {
+                mnemonic: 'Stoupající křivka pokroku a zrychlení.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#DBEAFE"/><path d="M40 144l40-36 28 18 52-64" fill="none" stroke="#2563EB" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="M130 60h32v32" fill="none" stroke="#2563EB" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+            },
+            search: {
+                mnemonic: 'Lupa zaměřená na hledaný detail.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#EEF2FF"/><circle cx="88" cy="88" r="40" fill="#FFFFFF" stroke="#4F46E5" stroke-width="11"/><path d="M118 118l44 44" stroke="#312E81" stroke-width="15" stroke-linecap="round"/></svg>`
+            },
+            door: {
+                mnemonic: 'Průchod dveřmi symbolizující otevření, zavření nebo volbu.',
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full"><rect width="200" height="200" fill="#F1F5F9"/><rect x="58" y="34" width="84" height="132" rx="10" fill="#334155"/><circle cx="124" cy="102" r="7" fill="#FACC15"/></svg>`
+            }
+        };
+
+        // --- SCÉNICKÉ ILUSTRACE PŘÍMO NA MÍRU ZÁKLADNÍM SLOVÍČKŮM ---
+        const cardVisuals = {
+            'es-1': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF3C7"/>
+                    <circle cx="158" cy="40" r="18" fill="#FACC15"/>
+                    <path d="M42 172h116" stroke="#92400E" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M118 172V96" stroke="#15803D" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M118 122c-28 0-42-22-42-42 24 0 42 14 42 42z" fill="#22C55E"/>
+                    <path d="M118 102c28 0 42-22 42-42-24 0-42 14-42 42z" fill="#16A34A"/>
+                    <rect x="26" y="54" width="38" height="30" rx="6" transform="rotate(20 26 54)" fill="#2563EB"/>
+                    <path d="M62 72l22 14" stroke="#2563EB" stroke-width="8" stroke-linecap="round"/>
+                    <circle cx="92" cy="96" r="4" fill="#38BDF8"/>
+                    <circle cx="84" cy="108" r="4" fill="#38BDF8"/>
+                    <circle cx="98" cy="112" r="4" fill="#38BDF8"/>
+                </svg>`
+            },
+            'es-2': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0F2FE"/>
+                    <circle cx="54" cy="118" r="18" fill="#0284C7"/>
+                    <path d="M24 176c0-20 14-32 30-32s30 12 30 32" fill="#0284C7"/>
+                    <circle cx="146" cy="118" r="18" fill="#0EA5E9"/>
+                    <path d="M116 176c0-20 14-32 30-32s30 12 30 32" fill="#0EA5E9"/>
+                    <rect x="64" y="24" width="72" height="58" rx="18" fill="#FFFFFF" stroke="#BAE6FD" stroke-width="4"/>
+                    <path d="M88 82l-10 14 22-14" fill="#FFFFFF"/>
+                    <circle cx="100" cy="48" r="14" fill="#FACC15"/>
+                    <rect x="93" y="63" width="14" height="6" rx="3" fill="#854D0E"/>
+                </svg>`
+            },
+            'es-3': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF9C3"/>
+                    <circle cx="162" cy="36" r="16" fill="#FACC15"/>
+                    <circle cx="82" cy="118" r="54" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="5"/>
+                    <path d="M56 112c0-13 11-22 24-20 13 2 23 11 21 24-2 13-14 20-27 18-13-2-18-9-18-22z" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="3"/>
+                    <circle cx="79" cy="114" r="12" fill="#F59E0B"/>
+                    <path d="M62 142c14-10 34-10 48 0-8 10-40 10-48 0z" fill="#D97706"/>
+                    <rect x="142" y="96" width="34" height="40" rx="8" fill="#78350F"/>
+                    <path d="M176 106h8a8 8 0 010 16h-8" fill="none" stroke="#78350F" stroke-width="5"/>
+                    <path d="M152 84c0-6 4-6 4-12M164 84c0-6 4-6 4-12" stroke="#94A3B8" stroke-width="3.5" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-4': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#F1F5F9"/>
+                    <path d="M146 44a26 26 0 00-34 34L52 138a11 11 0 0016 16l60-60a26 26 0 0034-34l-16 16-16-16 16-16z" fill="#475569"/>
+                    <path d="M64 68l76 76" stroke="#92400E" stroke-width="14" stroke-linecap="round"/>
+                    <rect x="42" y="52" width="52" height="22" rx="5" transform="rotate(-45 42 52)" fill="#DC2626"/>
+                </svg>`
+            },
+            'es-5': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DBEAFE"/>
+                    <path d="M100 32c28 38 46 64 46 90a46 46 0 01-92 0c0-26 18-52 46-90z" fill="#2563EB"/>
+                    <path d="M100 104c-8-10-22-8-22 4 0 12 22 24 22 24s22-12 22-24c0-12-14-14-22-4z" fill="#F43F5E"/>
+                    <path d="M74 114c0-10 6-22 14-34" fill="none" stroke="#93C5FD" stroke-width="6" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-6': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0F2FE"/>
+                    <path d="M22 66h34M16 90h42" stroke="#38BDF8" stroke-width="6" stroke-linecap="round"/>
+                    <path d="M102 30v102l60-18L102 30z" fill="#F97316"/>
+                    <path d="M96 44v88l-44-14L96 44z" fill="#FACC15"/>
+                    <path d="M40 136h120l-16 24H56l-16-24z" fill="#1E3A8A"/>
+                    <path d="M20 168c26-12 54-12 80 0 26-12 54-12 80 0" fill="none" stroke="#0284C7" stroke-width="8" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-7': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DCFCE7"/>
+                    <path d="M62 38h76v44a38 38 0 01-76 0V38z" fill="#EAB308"/>
+                    <path d="M62 50H42a14 14 0 000 28h20M138 50h20a14 14 0 010 28h-20" fill="none" stroke="#CA8A04" stroke-width="9"/>
+                    <path d="M100 120v32M70 152h60" stroke="#CA8A04" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M100 54l5 10 11 2-8 8 2 11-10-5-10 5 2-11-8-8 11-2 5-10z" fill="#FEF08A"/>
+                </svg>`
+            },
+            'es-8': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0E7FF"/>
+                    <path d="M34 108a66 66 0 01132 0H34z" fill="#4F46E5"/>
+                    <path d="M100 108v52a11 11 0 01-22 0" fill="none" stroke="#312E81" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M52 34l-8 20M100 26l-8 20M148 34l-8 20M36 72l-7 16M168 72l-7 16" stroke="#0284C7" stroke-width="7" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-9': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#F3E8FF"/>
+                    <path d="M22 172L92 56l38 58 24-36 28 94H22z" fill="#7E22CE"/>
+                    <path d="M92 56l-18 32h36L92 56z" fill="#F8FAFC"/>
+                    <path d="M62 172c14-18 36-22 24-42-10-16 14-24 6-40" fill="none" stroke="#FACC15" stroke-width="5" stroke-dasharray="6 6" stroke-linecap="round"/>
+                    <path d="M92 56V22l32 14-32 14" fill="#F43F5E" stroke="#F43F5E" stroke-width="4" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-10': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#D1FAE5"/>
+                    <path d="M30 164h34v-28h34v-28h34V80h38v84H30z" fill="#10B981"/>
+                    <path d="M36 112L134 38M104 36h32v32" fill="none" stroke="#047857" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-11': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#ECFDF5"/>
+                    <path d="M100 26c24 28 32 62 28 96H72c-4-34 4-68 28-96z" fill="#2563EB"/>
+                    <circle cx="100" cy="76" r="14" fill="#93C5FD"/>
+                    <path d="M72 108l-26 26h26M128 108l26 26h-26" fill="#EF4444"/>
+                    <path d="M86 126l14 42 14-42" fill="#F97316"/>
+                </svg>`
+            },
+            'es-12': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF9C3"/>
+                    <path d="M68 100a32 32 0 1164 0c0 14-8 22-13 32H81c-5-10-13-18-13-32z" fill="#FACC15"/>
+                    <rect x="83" y="138" width="34" height="10" rx="5" fill="#854D0E"/>
+                    <rect x="87" y="153" width="26" height="9" rx="4" fill="#854D0E"/>
+                    <path d="M100 24v16M36 96h16M148 96h16M52 48l12 12M148 48l-12 12" stroke="#EAB308" stroke-width="9" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-13': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FFE4E6"/>
+                    <path d="M92 44v60l52 30A60 60 0 1192 44z" fill="#F59E0B"/>
+                    <path d="M112 32a60 60 0 0152 52h-52V32z" fill="#F43F5E"/>
+                    <circle cx="72" cy="84" r="8" fill="#DC2626"/>
+                    <circle cx="68" cy="122" r="8" fill="#DC2626"/>
+                    <circle cx="106" cy="134" r="8" fill="#DC2626"/>
+                </svg>`
+            },
+            'es-14': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DCFCE7"/>
+                    <rect x="48" y="34" width="76" height="132" rx="10" fill="#15803D"/>
+                    <path d="M54 40l52 12v108l-52 6V40z" fill="#22C55E"/>
+                    <circle cx="96" cy="102" r="5" fill="#FEF08A"/>
+                    <circle cx="136" cy="126" r="30" fill="#16A34A" stroke="#FFFFFF" stroke-width="5"/>
+                    <path d="M122 126l10 10 18-20" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-15': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0F2FE"/>
+                    <rect x="30" y="64" width="140" height="72" rx="12" fill="#0284C7"/>
+                    <path d="M126 64v72" stroke="#BAE6FD" stroke-width="4" stroke-dasharray="6 6"/>
+                    <rect x="46" y="82" width="60" height="12" rx="4" fill="#FFFFFF"/>
+                    <rect x="46" y="104" width="42" height="8" rx="4" fill="#7DD3FC"/>
+                    <rect x="140" y="80" width="16" height="40" rx="3" fill="#FEF08A"/>
+                </svg>`
+            },
+            'es-16': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#EEF2FF"/>
+                    <circle cx="88" cy="88" r="42" fill="#FFFFFF" stroke="#4F46E5" stroke-width="12"/>
+                    <path d="M120 120l44 44" stroke="#312E81" stroke-width="16" stroke-linecap="round"/>
+                    <path d="M70 76a22 22 0 0128-8" fill="none" stroke="#93C5FD" stroke-width="6" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-17': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF3C7"/>
+                    <rect x="52" y="54" width="76" height="76" rx="12" transform="rotate(-12 52 54)" fill="#FBBF24"/>
+                    <path d="M124 58c18-12 36-10 46 4" fill="none" stroke="#94A3B8" stroke-width="5" stroke-dasharray="6 6" stroke-linecap="round"/>
+                    <text x="82" y="108" font-size="44" font-weight="bold" fill="#78350F">?</text>
+                </svg>`
+            },
+            'es-18': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#CCFBF1"/>
+                    <circle cx="100" cy="72" r="38" fill="#0D9488"/>
+                    <path d="M100 50v22l16 10" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M44 126c18-6 38-6 56 4 18-10 38-10 56-4v42c-18-6-38-6-56 4-18-10-38-10-56-4v-42z" fill="#0F766E"/>
+                    <path d="M100 130v42" stroke="#99F6E4" stroke-width="4"/>
+                </svg>`
+            },
+            'es-19': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF2F2"/>
+                    <path d="M100 32L172 160H28L100 32z" fill="#EF4444" stroke="#B91C1C" stroke-width="8" stroke-linejoin="round"/>
+                    <path d="M100 76v42" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
+                    <circle cx="100" cy="138" r="7" fill="#FFFFFF"/>
+                </svg>`
+            },
+            'es-20': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#F3E8FF"/>
+                    <path d="M100 34v136" stroke="#64748B" stroke-width="12" stroke-linecap="round"/>
+                    <path d="M100 54h54l16 16-16 16h-54V54z" fill="#22C55E"/>
+                    <path d="M100 100H46L30 116l16 16h54v-32z" fill="#A855F7"/>
+                </svg>`
+            },
+            'es-21': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DBEAFE"/>
+                    <circle cx="100" cy="100" r="62" fill="#FFFFFF" stroke="#2563EB" stroke-width="12"/>
+                    <path d="M100 62v38l26 16" fill="none" stroke="#1E3A8A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="100" cy="100" r="7" fill="#2563EB"/>
+                </svg>`
+            },
+            'es-22': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#ECFDF5"/>
+                    <rect x="30" y="42" width="140" height="96" rx="12" fill="#065F46" stroke="#92400E" stroke-width="8"/>
+                    <path d="M52 74h44M52 96h76M52 116h34" stroke="#A7F3D0" stroke-width="7" stroke-linecap="round"/>
+                    <path d="M64 138l-14 28M136 138l14 28" stroke="#92400E" stroke-width="8" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-23': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DCFCE7"/>
+                    <path d="M40 94L96 38h64v64l-56 56-64-64z" fill="#16A34A"/>
+                    <circle cx="136" cy="62" r="9" fill="#FFFFFF"/>
+                    <path d="M74 102h36M82 86h20M82 118h20" stroke="#FEF08A" stroke-width="8" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-24': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF9C3"/>
+                    <path d="M114 26L56 108h42l-12 66 58-82h-42l12-66z" fill="#F59E0B" stroke="#D97706" stroke-width="6" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-25': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DCFCE7"/>
+                    <path d="M80 38h40v42h42v40h-42v42H80v-42H38V80h42V38z" fill="#22C55E"/>
+                    <path d="M100 92c-7-9-20-7-20 4 0 11 20 22 20 22s20-11 20-22c0-11-13-13-20-4z" fill="#FFFFFF"/>
+                </svg>`
+            },
+            'es-26': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0E7FF"/>
+                    <rect x="44" y="42" width="112" height="116" rx="16" fill="#FFFFFF" stroke="#6366F1" stroke-width="6"/>
+                    <path d="M68 76h64M68 102h48" stroke="#94A3B8" stroke-width="7" stroke-linecap="round"/>
+                    <circle cx="136" cy="132" r="24" fill="#F59E0B"/>
+                    <path d="M136 120v14M136 142h.01" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-27': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FFEDD5"/>
+                    <path d="M80 58V40h40v18" fill="none" stroke="#475569" stroke-width="8" stroke-linecap="round"/>
+                    <rect x="54" y="58" width="92" height="104" rx="16" fill="#EA580C"/>
+                    <path d="M78 58v104M122 58v104" stroke="#FDBA74" stroke-width="6"/>
+                    <circle cx="72" cy="168" r="8" fill="#1E293B"/>
+                    <circle cx="128" cy="168" r="8" fill="#1E293B"/>
+                </svg>`
+            },
+            'es-28': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DCFCE7"/>
+                    <circle cx="100" cy="100" r="62" fill="#16A34A"/>
+                    <path d="M70 102l20 20 42-42" fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-29': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DBEAFE"/>
+                    <path d="M56 164v-44h88v44" fill="none" stroke="#EF4444" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M34 114c28-58 104-58 132 0" fill="none" stroke="#2563EB" stroke-width="11" stroke-linecap="round"/>
+                    <path d="M146 112l20 4-2-20" fill="none" stroke="#2563EB" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-30': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF3C7"/>
+                    <path d="M100 44v116M68 160h64" stroke="#78350F" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M44 96l112-26" stroke="#D97706" stroke-width="9" stroke-linecap="round"/>
+                    <circle cx="52" cy="116" r="18" fill="#F59E0B"/>
+                    <circle cx="148" cy="88" r="12" fill="#94A3B8"/>
+                </svg>`
+            },
+            'es-31': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF2F2"/>
+                    <path d="M84 64h32l10 100H74L84 64z" fill="#EF4444"/>
+                    <rect x="80" y="96" width="40" height="20" fill="#FFFFFF"/>
+                    <rect x="86" y="42" width="28" height="22" rx="4" fill="#FACC15"/>
+                    <path d="M124 52l44-16v32l-44-16zM76 52L32 36v32l44-16z" fill="#FEF08A"/>
+                </svg>`
+            },
+            'es-32': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FFEDD5"/>
+                    <path d="M62 36h76M62 164h76" stroke="#9A3412" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M70 36c0 34 30 48 30 64s-30 30-30 64h60c0-34-30-48-30-64s30-30 30-64H70z" fill="#FED7AA" stroke="#EA580C" stroke-width="6"/>
+                    <path d="M82 156h36l-18-16-18 16z" fill="#EA580C"/>
+                </svg>`
+            },
+            'es-33': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF9C3"/>
+                    <path d="M100 32l20 42 46 6-33 32 8 46-41-22-41 22 8-46-33-32 46-6 20-42z" fill="#FACC15" stroke="#CA8A04" stroke-width="6" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-34': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DCFCE7"/>
+                    <circle cx="100" cy="84" r="44" fill="#22C55E"/>
+                    <circle cx="72" cy="96" r="28" fill="#16A34A"/>
+                    <circle cx="128" cy="96" r="28" fill="#16A34A"/>
+                    <rect x="92" y="114" width="16" height="52" rx="4" fill="#78350F"/>
+                    <path d="M32 166h136" stroke="#15803D" stroke-width="10" stroke-linecap="round"/>
+                </svg>`
+            },
+            'es-35': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#F3E8FF"/>
+                    <path d="M40 74h104M122 52l24 22-24 22" fill="none" stroke="#9333EA" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M160 126H56M78 104l-24 22 24 22" fill="none" stroke="#EC4899" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-37': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DBEAFE"/>
+                    <path d="M100 28l58 24v50c0 40-24 62-58 76-34-14-58-36-58-76V52l58-24z" fill="#2563EB"/>
+                    <path d="M72 102l20 20 38-38" fill="none" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-38': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0F2FE"/>
+                    <rect x="44" y="42" width="112" height="116" rx="16" fill="#FFFFFF" stroke="#0284C7" stroke-width="6"/>
+                    <path d="M68 74h64M68 98h64" stroke="#94A3B8" stroke-width="7" stroke-linecap="round"/>
+                    <path d="M74 130l16 14 36-32" fill="none" stroke="#16A34A" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-39': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FFEDD5"/>
+                    <rect x="38" y="46" width="102" height="98" rx="14" fill="#EA580C"/>
+                    <path d="M38 74h102" stroke="#FED7AA" stroke-width="7"/>
+                    <path d="M122 136h46M148 118l20 18-20 18" fill="none" stroke="#1E293B" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'es-40': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0E7FF"/>
+                    <path d="M34 118l118-42 12 32-122 28-8-18z" fill="#4338CA"/>
+                    <path d="M100 124l-24 44M100 124l24 44" stroke="#312E81" stroke-width="9" stroke-linecap="round"/>
+                    <circle cx="156" cy="92" r="14" fill="#38BDF8"/>
+                </svg>`
+            },
+            'en-1': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF3C7"/>
+                    <path d="M100 44l44 40-44 64-44-64 44-40z" fill="#3B82F6"/>
+                    <path d="M56 84h88L100 148 56 84z" fill="#2563EB"/>
+                    <path d="M148 34l5 12 12 5-12 5-5 12-5-12-12-5 12-5 5-12z" fill="#F59E0B"/>
+                    <path d="M46 42l4 9 9 4-9 4-4 9-4-9-9-4 9-4 4-9z" fill="#F59E0B"/>
+                </svg>`
+            },
+            'en-3': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEE2E2"/>
+                    <circle cx="100" cy="100" r="64" fill="#EF4444"/>
+                    <circle cx="100" cy="100" r="42" fill="#FFFFFF"/>
+                    <circle cx="100" cy="100" r="20" fill="#EF4444"/>
+                    <path d="M158 42l-58 58" stroke="#1E293B" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M142 34h24v24" fill="#1E293B"/>
+                </svg>`
+            },
+            'en-4': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0E7FF"/>
+                    <rect x="96" y="36" width="66" height="128" rx="10" fill="#4F46E5"/>
+                    <circle cx="110" cy="102" r="5" fill="#C7D2FE"/>
+                    <circle cx="56" cy="78" r="16" fill="#64748B"/>
+                    <path d="M34 156v-36c0-12 10-20 22-20s22 8 22 20v36" fill="#64748B"/>
+                    <path d="M68 112h20" stroke="#F43F5E" stroke-width="8" stroke-linecap="round"/>
+                </svg>`
+            },
+            'en-5': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#F3E8FF"/>
+                    <circle cx="68" cy="100" r="28" fill="none" stroke="#EAB308" stroke-width="14"/>
+                    <path d="M96 100h68M144 100v24M164 100v18" stroke="#EAB308" stroke-width="14" stroke-linecap="round"/>
+                </svg>`
+            },
+            'en-8': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0F2FE"/>
+                    <rect x="88" y="88" width="24" height="76" rx="6" fill="#F43F5E"/>
+                    <path d="M32 132c20-66 104-66 132-8" fill="none" stroke="#0284C7" stroke-width="12" stroke-linecap="round"/>
+                    <path d="M142 126l24 2-4-24" fill="none" stroke="#0284C7" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'en-9': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DCFCE7"/>
+                    <rect x="36" y="38" width="54" height="54" rx="12" fill="#16A34A"/>
+                    <path d="M50 66l10 10 18-20" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="110" y="38" width="54" height="54" rx="12" fill="#16A34A"/>
+                    <path d="M124 66l10 10 18-20" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="36" y="108" width="54" height="54" rx="12" fill="#16A34A"/>
+                    <path d="M50 136l10 10 18-20" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="110" y="108" width="54" height="54" rx="12" fill="#16A34A"/>
+                    <path d="M124 136l10 10 18-20" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'en-10': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#DBEAFE"/>
+                    <rect x="38" y="128" width="24" height="36" rx="5" fill="#93C5FD"/>
+                    <rect x="74" y="106" width="24" height="58" rx="5" fill="#60A5FA"/>
+                    <rect x="110" y="82" width="24" height="82" rx="5" fill="#3B82F6"/>
+                    <path d="M36 106l42-26 30 14 54-54" fill="none" stroke="#1D4ED8" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M134 40h28v28" fill="none" stroke="#1D4ED8" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'en-12': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF3C7"/>
+                    <rect x="58" y="42" width="84" height="64" rx="10" fill="#D97706"/>
+                    <path d="M100 42v64" stroke="#FEF3C7" stroke-width="6"/>
+                    <path d="M100 120v44M78 144l22 22 22-22" fill="none" stroke="#2563EB" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'en-13': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FFE4E6"/>
+                    <circle cx="52" cy="76" r="16" fill="#F43F5E"/>
+                    <circle cx="100" cy="72" r="18" fill="#E11D48"/>
+                    <circle cx="148" cy="76" r="16" fill="#F43F5E"/>
+                    <circle cx="76" cy="116" r="18" fill="#BE123C"/>
+                    <circle cx="124" cy="116" r="18" fill="#BE123C"/>
+                    <path d="M36 168c0-20 18-32 40-32h48c22 0 40 12 40 32" fill="#9F1239"/>
+                </svg>`
+            },
+            'en-14': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#ECFDF5"/>
+                    <circle cx="152" cy="42" r="16" fill="#FACC15"/>
+                    <path d="M44 170c16-42 96-34 86-74-8-30 34-36 34-54" fill="none" stroke="#475569" stroke-width="22" stroke-linecap="round"/>
+                    <path d="M44 170c16-42 96-34 86-74-8-30 34-36 34-54" fill="none" stroke="#F8FAFC" stroke-width="4" stroke-dasharray="8 8" stroke-linecap="round"/>
+                </svg>`
+            },
+            'en-17': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0F2FE"/>
+                    <rect x="48" y="34" width="104" height="132" rx="14" fill="#FFFFFF" stroke="#0284C7" stroke-width="6"/>
+                    <path d="M68 70l8 8 14-14M102 72h32M68 102l8 8 14-14M102 104h32M68 134l8 8 14-14M102 136h32" fill="none" stroke="#16A34A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>`
+            },
+            'en-23': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEE2E2"/>
+                    <circle cx="100" cy="100" r="60" fill="#EF4444"/>
+                    <path d="M74 74l52 52M126 74l-52 52" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
+                </svg>`
+            },
+            'en-25': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#FEF3C7"/>
+                    <circle cx="100" cy="84" r="44" fill="#F59E0B"/>
+                    <path d="M100 56l8 16 18 3-13 13 3 18-16-8-16 8 3-18-13-13 18-3 8-16z" fill="#FFFFFF"/>
+                    <path d="M78 124l-12 44 34-16 34 16-12-44" fill="#D97706"/>
+                </svg>`
+            },
+            'en-26': {
+                svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                    <rect width="200" height="200" fill="#E0F2FE"/>
+                    <circle cx="132" cy="68" r="28" fill="#FACC15"/>
+                    <path d="M56 144h86a26 26 0 004-52 36 36 0 00-70-6 28 28 0 00-20 58z" fill="#FFFFFF" stroke="#BAE6FD" stroke-width="5"/>
+                </svg>`
+            }
+        };
+
+        cardVisuals['en-2'] = cardVisuals['es-37'];
+        cardVisuals['en-6'] = cardVisuals['es-18'];
+        cardVisuals['en-7'] = cardVisuals['es-39'];
+        cardVisuals['en-11'] = cardVisuals['es-2'];
+        cardVisuals['en-15'] = cardVisuals['es-22'];
+        cardVisuals['en-16'] = cardVisuals['es-14'];
+        cardVisuals['en-18'] = cardVisuals['es-27'];
+        cardVisuals['en-19'] = cardVisuals['es-21'];
+        cardVisuals['en-20'] = cardVisuals['es-20'];
+        cardVisuals['en-21'] = cardVisuals['es-25'];
+        cardVisuals['en-22'] = cardVisuals['es-13'];
+        cardVisuals['en-24'] = cardVisuals['es-24'];
+        cardVisuals['en-27'] = cardVisuals['es-29'];
+        cardVisuals['en-28'] = cardVisuals['es-14'];
+        cardVisuals['en-29'] = cardVisuals['es-5'];
+        cardVisuals['en-30'] = cardVisuals['es-1'];
+        cardVisuals['en-31'] = cardVisuals['es-9'];
+        cardVisuals['en-32'] = cardVisuals['es-7'];
+        cardVisuals['en-33'] = cardVisuals['es-32'];
+        cardVisuals['en-34'] = cardVisuals['es-40'];
+        cardVisuals['en-35'] = cardVisuals['es-4'];
+        cardVisuals['en-36'] = cardVisuals['es-30'];
+        cardVisuals['en-37'] = cardVisuals['es-33'];
+        cardVisuals['en-38'] = cardVisuals['es-38'];
+        cardVisuals['en-39'] = cardVisuals['es-8'];
+        cardVisuals['en-40'] = cardVisuals['es-34'];
+
+        extendedVocabularyPack.forEach((item, idx) => {
+            const [lang, level, pos, word, phonetic, translation, catKey, exForeign, exCs] = item;
+            const id = `${lang}-ext-${idx + 1}`;
+            const tpl = categoryVisualTemplates[catKey] || categoryVisualTemplates.study;
+            defaultCards.push({
+                id,
+                lang,
+                level,
+                pos,
+                word,
+                phonetic,
+                translation,
+                mnemonic: tpl.mnemonic,
+                exForeign,
+                exCs,
+                catKey
+            });
+            cardVisuals[id] = { svg: tpl.svg };
+        });
+
+        const defaultVisualObj = {
+            svg: `<svg viewBox="0 0 200 200" class="w-full h-full">
+                <rect width="200" height="200" fill="#E0E7FF"/>
+                <path d="M42 62c20-9 40-9 58 5 18-14 38-14 58-5v82c-20-9-40-9-58 5-18-14-38-14-58-5V62z" fill="#4F46E5"/>
+                <path d="M100 67v82" stroke="#C7D2FE" stroke-width="7"/>
+            </svg>`
+        };
+
+        // --- AUTOMATICKÉ GENEROVÁNÍ OBRÁZKOVÉ ASOCIACE PODLE VÝZNAMU SLOVA ---
+        function inferCategoryFromText(word, translation) {
+            const text = `${word} ${translation}`.toLowerCase();
+            if (/(house|home|room|door|window|bed|table|chair|casa|hogar|habitaci|mesa|silla|dům|domov|pokoj|byt)/.test(text)) return 'home';
+            if (/(friend|family|mother|father|child|person|people|man|woman|amigo|familia|madre|padre|niño|persona|gente|přítel|rodina|člověk|lidé)/.test(text)) return 'people';
+            if (/(work|job|office|company|business|team|meeting|trabajo|empleo|oficina|empresa|equipo|reuni|práce|zaměstnání|kancelář|firma)/.test(text)) return 'work';
+            if (/(money|pay|buy|sell|price|cost|shop|market|bank|dinero|pagar|comprar|vender|precio|tienda|banco|peníze|platit|koupit|cena|obchod)/.test(text)) return 'money';
+            if (/(food|eat|drink|bread|coffee|tea|fruit|meat|dinner|lunch|comida|comer|beber|pan|café|fruta|carne|cena|jídlo|jíst|pít|káva|ovoce)/.test(text)) return 'food';
+            if (/(water|rain|sea|river|ocean|lake|agua|lluvia|mar|río|océano|lago|voda|déšť|moře|řeka)/.test(text)) return 'water';
+            if (/(travel|car|train|plane|bus|city|street|road|airport|hotel|viajar|coche|tren|avión|ciudad|calle|camino|cestovat|auto|vlak|město|ulice)/.test(text)) return 'travel';
+            if (/(tree|sun|forest|mountain|flower|animal|dog|cat|weather|árbol|sol|bosque|montaña|flor|perro|gato|strom|slunce|les|hora|květina|příroda)/.test(text)) return 'nature';
+            if (/(time|day|week|month|year|hour|minute|morning|night|today|tomorrow|tiempo|día|semana|mes|año|hora|mañana|noche|čas|den|týden|rok|hodina)/.test(text)) return 'time';
+            if (/(book|read|write|learn|study|school|word|language|libro|leer|escribir|aprender|estudiar|escuela|palabra|idioma|kniha|číst|psát|učit|škola|slovo)/.test(text)) return 'study';
+            if (/(think|know|understand|idea|question|answer|mind|remember|pensar|saber|entender|idea|pregunta|respuesta|recordar|myslet|vědět|rozumět|otázka|odpověď)/.test(text)) return 'idea';
+            if (/(danger|problem|risk|fear|wrong|error|stop|hard|difficult|peligro|problema|riesgo|miedo|error|difícil|nebezpečí|problém|chyba|těžký)/.test(text)) return 'alert';
+            if (/(win|success|good|great|happy|safe|free|easy|best|ganar|éxito|bueno|feliz|seguro|fácil|mejor|úspěch|dobrý|šťastný|snadný)/.test(text)) return 'success';
+            if (/(grow|fast|quick|increase|rise|up|new|young|develop|crecer|rápido|aumentar|subir|nuevo|joven|desarrollar|růst|rychlý|zvýšit|nový)/.test(text)) return 'growth';
+            if (/(look|see|find|search|watch|eye|mirar|ver|encontrar|buscar|observar|ojo|hledat|najít|vidět|dívat)/.test(text)) return 'search';
+            if (/(open|close|enter|exit|leave|choose|option|abrir|cerrar|entrar|salir|elegir|opción|otevřít|zavřít|vybrat|volba)/.test(text)) return 'door';
+            const keys = Object.keys(categoryVisualTemplates);
+            let hash = 0;
+            for (let i = 0; i < text.length; i++) hash = ((hash << 5) - hash) + text.charCodeAt(i);
+            return keys[Math.abs(hash) % keys.length];
+        }
+
+        function getVisualForCard(card) {
+            if (card.imageData) return { imageData: card.imageData };
+            if (cardVisuals[card.id]) return cardVisuals[card.id];
+            const cat = card.catKey || inferCategoryFromText(card.word, card.translation);
+            const emojiByCategory = { home:'🏠', people:'🧑‍🤝‍🧑', work:'💼', money:'💰', food:'🍎', water:'💧', travel:'🧳', nature:'🌿', time:'⏰', study:'📚', idea:'💡', alert:'⚠️', success:'🏆', growth:'🌱', search:'🔎', door:'🚪' };
+            const emoji = emojiByCategory[cat] || '✨';
+            const hue = Array.from(String(card.word || '')).reduce((a,ch)=>a+ch.charCodeAt(0),0)%360;
+            const safeWord = String(card.word || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Ilustrace ke slovíčku ${safeWord}"><defs><linearGradient id="g${hue}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="hsl(${hue} 78% 88%)"/><stop offset="1" stop-color="hsl(${(hue+48)%360} 78% 72%)"/></linearGradient></defs><rect width="240" height="240" rx="34" fill="url(#g${hue})"/><circle cx="120" cy="103" r="68" fill="white" opacity=".55"/><text x="120" y="129" font-size="76" text-anchor="middle">${emoji}</text><rect x="24" y="184" width="192" height="34" rx="17" fill="white" opacity=".78"/><text x="120" y="207" font-family="Arial,sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#263247">${safeWord.slice(0,22)}</text></svg>`;
+            cardVisuals[card.id] = { svg };
+            return cardVisuals[card.id];
+        }
+
+        // --- STAV APLIKACE A PAMĚŤ (LOCALSTORAGE) ---
+        const STORAGE_KEY = 'ankismart_v5_state';
+        let state = {
+            cards: [...defaultCards],
+            progress: {},
+            filters: {
+                lang: 'es',
+                level: 'all',
+                pos: 'all'
+            },
+            settings: {
+                voiceProfile: 'female1',
+                speechRate: 1.0,
+                autoAudio: true,
+                autoSentence: true,
+                soundMuted: false,
+                dailyGoal: 15,
+                dailyNewLimit: 20,
+                darkMode: true
+            },
+            stats: {
+                todayReviewed: 0,
+                todayNewLearned: 0,
+                todaySeconds: 0,
+                streak: 1,
+                lastDate: new Date().toISOString().split('T')[0]
+            }
+        };
+
+        let currentCard = null;
+        let isFlipped = false;
+        let extraPracticeLimit = 0;
+        let bonusNewWordsToday = 0;
+        let availableVoices = [];
+        let lastWordClickTime = 0;
+        let lastQuickSoundClickTime = 0;
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed.cards && Array.isArray(parsed.cards)) {
+                        const existingIds = new Set(parsed.cards.map(c => c.id));
+                        const merged = [...parsed.cards];
+                        defaultCards.forEach(dc => {
+                            if (!existingIds.has(dc.id)) merged.push(dc);
+                        });
+                        state.cards = merged;
+                    }
+                    if (parsed.progress) state.progress = parsed.progress;
+                    if (parsed.filters) state.filters = { ...state.filters, ...parsed.filters };
+                    if (parsed.settings) state.settings = { ...state.settings, ...parsed.settings };
+                    if (parsed.stats) state.stats = { ...state.stats, ...parsed.stats };
+                }
+
+                const today = new Date().toISOString().split('T')[0];
+                if (state.stats.lastDate !== today) {
+                    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                    state.stats.streak = (state.stats.lastDate === yesterday) ? (state.stats.streak + 1) : 1;
+                    state.stats.todayReviewed = 0;
+                    state.stats.todayNewLearned = 0;
+                    state.stats.todaySeconds = 0;
+                    state.stats.lastDate = today;
+                    saveState();
+                }
+            } catch (e) {
+                console.error('Chyba při načítání stavu:', e);
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.error('Chyba při ukládání stavu:', e);
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 1800);
+        }
+
+        function applyTheme() {
+            if (state.settings.darkMode) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        function getEffectiveDailyNewLimit() {
+            const base = parseInt(state.settings.dailyNewLimit, 10) || 20;
+            if (base > 100) return Infinity; // Neomezeně
+            return base + bonusNewWordsToday;
+        }
+
+        function isNewLimitReached() {
+            const limit = getEffectiveDailyNewLimit();
+            if (limit === Infinity) return false;
+            return (state.stats.todayNewLearned || 0) >= limit;
+        }
+
+        // --- HLASOVÁ SYNTÉZA (TTS) ---
+        function refreshVoices() {
+            if (!('speechSynthesis' in window)) return;
+            availableVoices = window.speechSynthesis.getVoices() || [];
+        }
+
+        if ('speechSynthesis' in window) {
+            refreshVoices();
+            window.speechSynthesis.onvoiceschanged = refreshVoices;
+        }
+
+        function pickVoice(langCode, profile) {
+            if (!availableVoices.length) refreshVoices();
+            const prefix = langCode === 'es' ? 'es' : 'en';
+            const langVoices = availableVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith(prefix));
+            if (!langVoices.length) return null;
+
+            const isMaleWanted = profile.startsWith('male');
+            const isSecondVariant = profile.endsWith('2');
+
+            const maleHints = ['male', 'jorge', 'diego', 'carlos', 'pablo', 'raul', 'enrique', 'david', 'mark', 'george', 'daniel', 'arthur', 'guy', 'james', 'es-es-x-eed', 'es-us-x-sfb', 'en-gb-x-gbd', 'en-us-x-iom', 'en-us-x-tpd'];
+            const femaleHints = ['female', 'monica', 'paulina', 'lucia', 'elena', 'laura', 'helena', 'carmen', 'zira', 'susan', 'hazel', 'samantha', 'victoria', 'karen', 'es-es-x-eec', 'es-us-x-sfb', 'en-gb-x-gba', 'en-us-x-sfg', 'en-us-x-tpf'];
+
+            const filtered = langVoices.filter(v => {
+                const name = (v.name + ' ' + v.voiceURI).toLowerCase();
+                if (isMaleWanted) {
+                    return maleHints.some(h => name.includes(h)) && !femaleHints.some(h => name.includes(h));
+                } else {
+                    return femaleHints.some(h => name.includes(h)) || !maleHints.some(h => name.includes(h));
+                }
+            });
+
+            const pool = filtered.length ? filtered : langVoices;
+            if (isSecondVariant && pool.length > 1) {
+                return pool[1];
+            }
+            return pool[0];
+        }
+
+        function speakText(text, slow = false, forcePlay = false) {
+            if (!text || !('speechSynthesis' in window)) return;
+            if (state.settings.soundMuted && !forcePlay) return;
+
+            window.speechSynthesis.cancel();
+
+            const utter = new SpeechSynthesisUtterance(text);
+            const lang = state.filters.lang;
+            utter.lang = lang === 'es' ? 'es-ES' : 'en-GB';
+
+            const profile = state.settings.voiceProfile || 'female1';
+            const selectedVoice = pickVoice(lang, profile);
+            if (selectedVoice) utter.voice = selectedVoice;
+
+            let baseRate = parseFloat(state.settings.speechRate) || 1.0;
+            let pitch = 1.0;
+
+            if (profile === 'female1') {
+                pitch = 1.12;
+                baseRate *= 1.0;
+            } else if (profile === 'female2') {
+                pitch = 0.98;
+                baseRate *= 0.92;
+            } else if (profile === 'male1') {
+                pitch = 0.80;
+                baseRate *= 1.03;
+            } else if (profile === 'male2') {
+                pitch = 0.66;
+                baseRate *= 0.90;
+            }
+
+            utter.pitch = pitch;
+            utter.rate = slow ? 0.65 : baseRate;
+
+            window.speechSynthesis.speak(utter);
+        }
+
+        function handleWordAudioTrigger() {
+            if (!currentCard) return;
+            const now = Date.now();
+            const isDouble = (now - lastWordClickTime) < 450;
+            lastWordClickTime = now;
+            if (isDouble) {
+                speakText(currentCard.word, true, true);
+                showToast('🐢 Zpomalené přehrání (0.65×)');
+            } else {
+                speakText(currentCard.word, false, true);
+            }
+        }
+
+        function handleQuickSoundBtn() {
+            const now = Date.now();
+            const isDouble = (now - lastQuickSoundClickTime) < 450;
+            lastQuickSoundClickTime = now;
+
+            if (isDouble) {
+                state.settings.soundMuted = !state.settings.soundMuted;
+                if (state.settings.soundMuted && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                }
+                saveState();
+                syncUI();
+                showToast(state.settings.soundMuted ? '🔇 Automatický zvuk ztlumen' : '🔊 Zvuk zapnut');
+            } else {
+                if (state.settings.soundMuted) {
+                    state.settings.soundMuted = false;
+                    saveState();
+                    syncUI();
+                    showToast('🔊 Zvuk zapnut');
+                }
+                if (currentCard) speakText(currentCard.word, false, true);
+            }
+        }
+
+        // --- SPACED REPETITION (SM-2) A FILTROVÁNÍ ---
+        function getFilteredCards() {
+            return state.cards.filter(c => {
+                if (c.lang !== state.filters.lang) return false;
+                if (state.filters.level !== 'all' && c.level !== state.filters.level) return false;
+                if (state.filters.pos === 'phrase') {
+                    if (c.pos !== 'Fráze') return false;
+                } else if (state.filters.pos === 'word') {
+                    if (c.pos === 'Fráze') return false;
+                }
+                return true;
+            });
+        }
+
+        function updateCounters() {
+            const cards = getFilteredCards();
+            const now = Date.now();
+            let countNew = 0;
+            let countDue = 0;
+            let countMastered = 0;
+
+            cards.forEach(c => {
+                const p = state.progress[c.id];
+                if (!p) {
+                    countNew++;
+                } else {
+                    if (p.interval >= 3) countMastered++;
+                    if (p.due <= now) countDue++;
+                }
+            });
+
+            document.getElementById('count-new').textContent = countNew;
+            document.getElementById('count-due').textContent = countDue;
+            document.getElementById('count-mastered-top').textContent = countMastered;
+
+            const limit = getEffectiveDailyNewLimit();
+            const learned = state.stats.todayNewLearned || 0;
+            const limitLabel = limit === Infinity ? '∞' : limit;
+            document.getElementById('daily-words-display').textContent = `${learned}/${limitLabel} slov`;
+        }
+
+        function formatInterval(minutes) {
+            if (minutes < 60) return `${Math.round(minutes)} min`;
+            const hours = minutes / 60;
+            if (hours < 24) return `${Math.round(hours)} hod`;
+            const days = Math.round(hours / 24);
+            if (days === 1) return '1 den';
+            if (days >= 2 && days <= 4) return `${days} dny`;
+            return `${days} dní`;
+        }
+
+        function previewIntervals(card) {
+            const p = state.progress[card.id] || { interval: 0, ease: 2.5, reps: 0 };
+            const baseDays = p.interval || 1;
+            const ease = p.ease || 2.5;
+
+            document.getElementById('interval-1').textContent = '1 min';
+            document.getElementById('interval-2').textContent = p.reps === 0 ? '6 min' : formatInterval(Math.max(10, baseDays * 1440 * 0.8));
+            document.getElementById('interval-3').textContent = p.reps === 0 ? '10 min' : formatInterval(Math.max(1440, baseDays * 1440 * ease));
+            document.getElementById('interval-4').textContent = p.reps === 0 ? '4 dny' : formatInterval(Math.max(4320, baseDays * 1440 * ease * 1.3));
+        }
+
+        function rateCard(rating) {
+            if (!currentCard) return;
+            const now = Date.now();
+            const isBrandNew = !state.progress[currentCard.id];
+            const p = state.progress[currentCard.id] || { interval: 0, ease: 2.5, reps: 0, due: now };
+
+            let nextMinutes = 10;
+            if (rating === 1) {
+                p.reps = 0;
+                p.interval = 0;
+                p.ease = Math.max(1.3, p.ease - 0.2);
+                nextMinutes = 1;
+            } else if (rating === 2) {
+                p.reps += 1;
+                nextMinutes = p.reps === 1 ? 6 : Math.max(15, (p.interval || 1) * 1440 * 0.8);
+                p.interval = nextMinutes / 1440;
+                p.ease = Math.max(1.3, p.ease - 0.15);
+            } else if (rating === 3) {
+                p.reps += 1;
+                if (p.reps === 1) nextMinutes = 10;
+                else if (p.reps === 2) nextMinutes = 1440;
+                else nextMinutes = (p.interval || 1) * 1440 * p.ease;
+                p.interval = nextMinutes / 1440;
+            } else if (rating === 4) {
+                p.reps += 1;
+                nextMinutes = p.reps === 1 ? 4 * 1440 : Math.max(4 * 1440, (p.interval || 1) * 1440 * p.ease * 1.3);
+                p.interval = nextMinutes / 1440;
+                p.ease += 0.15;
+            }
+
+            p.due = now + nextMinutes * 60 * 1000;
+            state.progress[currentCard.id] = p;
+            state.stats.todayReviewed += 1;
+            if (isBrandNew) {
+                state.stats.todayNewLearned = (state.stats.todayNewLearned || 0) + 1;
+            }
+
+            if (extraPracticeLimit > 0) extraPracticeLimit--;
+            saveState();
+            loadNextCard();
+        }
+
+        function renderCard(card) {
+            currentCard = card;
+            isFlipped = false;
+            const flashcardEl = document.getElementById('flashcard');
+            if (flashcardEl) { flashcardEl.classList.remove('card-flip-animate'); flashcardEl.style.animation = 'none'; void flashcardEl.offsetWidth; flashcardEl.style.animation = ''; }
+
+            const answerSection = document.getElementById('answer-section');
+            const visualWrapper = document.getElementById('card-visual-wrapper');
+            const flipBtn = document.getElementById('flip-btn');
+            const ratingBtns = document.getElementById('rating-buttons');
+
+            // Okamžitý reset do Stavu A bez jakéhokoli probliknutí
+            if (answerSection) {
+                answerSection.classList.add('hidden', 'is-hidden');
+                answerSection.classList.remove('is-visible');
+            }
+            if (visualWrapper) {
+                visualWrapper.classList.add('hidden', 'is-hidden');
+                visualWrapper.classList.remove('is-visible');
+            }
+            if (flipBtn) flipBtn.classList.remove('hidden');
+            if (ratingBtns) ratingBtns.classList.add('hidden');
+
+            document.getElementById('card-level-badge').textContent = card.level;
+            document.getElementById('card-pos-badge').textContent = card.pos;
+            document.getElementById('card-word').textContent = card.word;
+            document.getElementById('card-phonetic').textContent = card.phonetic || '';
+            document.getElementById('card-translation').textContent = card.translation;
+
+            const deleteBtn = document.getElementById('delete-custom-btn');
+            if (card.id.startsWith('custom-')) {
+                deleteBtn.classList.remove('hidden');
+            } else {
+                deleteBtn.classList.add('hidden');
+            }
+
+            const bgVisualEl = document.getElementById('card-bg-visual');
+            const visualData = getVisualForCard(card);
+            if (bgVisualEl) {
+                if (visualData.imageData) bgVisualEl.innerHTML = `<img src="${visualData.imageData}" alt="Obrázek ke slovíčku" class="w-full h-full object-cover">`;
+                else bgVisualEl.innerHTML = visualData.svg;
+            }
+
+            const mnemonicBox = document.getElementById('card-mnemonic-box');
+            if (card.mnemonic) {
+                mnemonicBox.classList.remove('hidden');
+                document.getElementById('card-mnemonic').textContent = card.mnemonic;
+            } else {
+                mnemonicBox.classList.add('hidden');
+            }
+
+            const exampleBox = document.getElementById('card-example-box');
+            if (card.exForeign) {
+                exampleBox.classList.remove('hidden');
+                document.getElementById('card-example-es').textContent = card.exForeign;
+                document.getElementById('card-example-cs').textContent = card.exCs || '';
+            } else {
+                exampleBox.classList.add('hidden');
+            }
+
+            previewIntervals(card);
+
+            if (state.settings.autoAudio) {
+                setTimeout(() => speakText(card.word, false), 180);
+            }
+        }
+
+        function flipCard() {
+            if (!currentCard || isFlipped) return;
+            isFlipped = true;
+            const flashcardEl = document.getElementById('flashcard');
+            if (flashcardEl) { flashcardEl.classList.remove('card-flip-animate'); void flashcardEl.offsetWidth; flashcardEl.classList.add('card-flip-animate'); }
+
+            const answerSection = document.getElementById('answer-section');
+            const visualWrapper = document.getElementById('card-visual-wrapper');
+            if (visualWrapper) {
+                visualWrapper.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    visualWrapper.classList.remove('is-hidden');
+                    visualWrapper.classList.add('is-visible');
+                });
+            }
+            if (answerSection) {
+                answerSection.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    answerSection.classList.remove('is-hidden');
+                    answerSection.classList.add('is-visible');
+                });
+            }
+
+            document.getElementById('flip-btn').classList.add('hidden');
+            document.getElementById('rating-buttons').classList.remove('hidden');
+
+            if (state.settings.autoSentence && currentCard.exForeign) {
+                setTimeout(() => speakText(currentCard.exForeign, false), 260);
+            }
+        }
+
+        function loadNextCard() {
+            updateCounters();
+            const cards = getFilteredCards();
+            const now = Date.now();
+
+            const dueCards = cards.filter(c => {
+                const p = state.progress[c.id];
+                return p && p.due <= now;
+            }).sort((a, b) => state.progress[a.id].due - state.progress[b.id].due);
+
+            const newCards = cards.filter(c => !state.progress[c.id]);
+            const limitReached = isNewLimitReached();
+
+            let next = dueCards[0] || null;
+            if (!next && !limitReached && newCards.length > 0) {
+                next = newCards[0];
+            }
+            if (!next && extraPracticeLimit > 0 && cards.length > 0) {
+                const sorted = [...cards].sort((a, b) => (state.progress[a.id]?.due || 0) - (state.progress[b.id]?.due || 0));
+                next = sorted[0];
+            }
+
+            const flashcardArea = document.getElementById('flashcard-area');
+            const completedArea = document.getElementById('completed-area');
+            const controlsArea = document.getElementById('controls-area');
+            const increaseLimitBtn = document.getElementById('increase-limit-btn');
+
+            if (next) {
+                flashcardArea.classList.remove('hidden');
+                controlsArea.classList.remove('hidden');
+                completedArea.classList.add('hidden');
+                renderCard(next);
+            } else {
+                currentCard = null;
+                flashcardArea.classList.add('hidden');
+                controlsArea.classList.add('hidden');
+                completedArea.classList.remove('hidden');
+
+                if (limitReached && newCards.length > 0) {
+                    document.getElementById('completed-icon').textContent = '🎯';
+                    document.getElementById('completed-title').textContent = 'Denní limit nových slov splněn!';
+                    document.getElementById('completed-desc').textContent = `Dnes jste se naučil ${state.stats.todayNewLearned} nových slovíček (zbývá ještě ${newCards.length} nových v tomto filtru).`;
+                    increaseLimitBtn.classList.remove('hidden');
+                } else {
+                    document.getElementById('completed-icon').textContent = '🎉';
+                    document.getElementById('completed-title').textContent = 'Skvělá práce!';
+                    document.getElementById('completed-desc').textContent = 'Pro tento filtr máte pro dnešek všechna slovíčka procvičená.';
+                    increaseLimitBtn.classList.add('hidden');
+                }
+            }
+        }
+
+        // --- ZÁLOŽKA: KOMPLETNÍ SLOVNÍK ---
+        function renderDictionaryList() {
+            const container = document.getElementById('dict-list-container');
+            const searchQuery = (document.getElementById('dict-search-input').value || '').trim().toLowerCase();
+            const levelFilter = document.getElementById('dict-filter-level').value;
+            const statusFilter = document.getElementById('dict-filter-status').value;
+
+            document.getElementById('dict-lang-label').textContent = state.filters.lang === 'es' ? '🇪🇸 Španělština' : '🇬🇧 Angličtina';
+
+            const filtered = state.cards.filter(c => {
+                if (c.lang !== state.filters.lang) return false;
+                if (levelFilter !== 'all' && c.level !== levelFilter) return false;
+
+                const p = state.progress[c.id];
+                let cardStatus = 'new';
+                if (p) {
+                    cardStatus = p.interval >= 3 ? 'mastered' : 'learning';
+                }
+                if (statusFilter !== 'all' && cardStatus !== statusFilter) return false;
+
+                if (searchQuery) {
+                    const hay = `${c.word} ${c.translation}`.toLowerCase();
+                    if (!hay.includes(searchQuery)) return false;
+                }
+                return true;
+            });
+
+            document.getElementById('dict-count-label').textContent = filtered.length;
+
+            // Vykreslíme maximálně 350 položek najednou pro okamžitou plynulost na mobilu
+            const slice = filtered.slice(0, 350);
+            if (slice.length === 0) {
+                container.innerHTML = `<div class="text-center py-12 text-sm text-slate-400">Žádná slovíčka neodpovídají hledanému filtru.</div>`;
+                return;
+            }
+
+            const html = slice.map(c => {
+                const p = state.progress[c.id];
+                let dotClass = 'bg-blue-500';
+                let statusText = 'Nové';
+                if (p) {
+                    if (p.interval >= 3) {
+                        dotClass = 'bg-emerald-500';
+                        statusText = 'Zvládnuté';
+                    } else {
+                        dotClass = 'bg-amber-500';
+                        statusText = 'Učím se';
+                    }
+                }
+
+                return `
+                    <div class="dict-item bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-3 transition-colors cursor-pointer" data-card-id="${c.id}">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="w-2 h-2 rounded-full ${dotClass} shrink-0" title="${statusText}"></span>
+                                    <span class="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white break-words">${c.word}</span>
+                                    <span class="text-xs font-mono text-slate-400">${c.phonetic || ''}</span>
+                                    <span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold">${c.level}</span>
+                                </div>
+                                <div class="text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400 mt-0.5 pl-4 break-words">${c.translation}</div>
+                            </div>
+                            <button type="button" class="dict-speak-btn w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-500/15 text-slate-700 dark:text-slate-200 hover:text-blue-500 flex items-center justify-center shrink-0 transition-colors" data-word="${c.word.replace(/"/g, '&quot;')}" aria-label="Přehrát ${c.word}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                            </button>
+                        </div>
+                        <div class="dict-detail hidden mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-xs space-y-1.5 pl-4">
+                            ${c.mnemonic ? `<div class="text-slate-500 dark:text-slate-400"><span class="font-bold uppercase text-[10px]">Asociace:</span> ${c.mnemonic}</div>` : ''}
+                            ${c.exForeign ? `<div><div class="font-semibold text-slate-800 dark:text-slate-200">${c.exForeign}</div><div class="text-slate-500 dark:text-slate-400">${c.exCs || ''}</div></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const footerNote = filtered.length > 350
+                ? `<div class="text-center py-3 text-[11px] text-slate-400">Zobrazeno prvních 350 z ${filtered.length} položek. Upřesněte hledání v poli výše.</div>`
+                : '';
+
+            container.innerHTML = html + footerNote;
+        }
+
+        // --- SYNCHRONIZACE UI OVLÁDACÍCH PRVKŮ ---
+        function syncUI() {
+            const esBtn = document.getElementById('lang-es');
+            const enBtn = document.getElementById('lang-en');
+            if (state.filters.lang === 'es') {
+                esBtn.className = 'px-2 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 bg-blue-600 text-white';
+                enBtn.className = 'px-2 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+                esBtn.setAttribute('aria-pressed', 'true');
+                enBtn.setAttribute('aria-pressed', 'false');
+            } else {
+                enBtn.className = 'px-2 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 bg-blue-600 text-white';
+                esBtn.className = 'px-2 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white';
+                enBtn.setAttribute('aria-pressed', 'true');
+                esBtn.setAttribute('aria-pressed', 'false');
+            }
+
+            const iconOn = document.getElementById('icon-sound-on');
+            const iconOff = document.getElementById('icon-sound-off');
+            if (state.settings.soundMuted) {
+                iconOn.classList.add('hidden');
+                iconOff.classList.remove('hidden');
+            } else {
+                iconOn.classList.remove('hidden');
+                iconOff.classList.add('hidden');
+            }
+
+            document.getElementById('filter-level').value = state.filters.level;
+            document.getElementById('filter-pos').value = state.filters.pos;
+
+            document.getElementById('setting-voice-profile').value = state.settings.voiceProfile;
+            document.getElementById('setting-speech-rate').value = state.settings.speechRate;
+            document.getElementById('speech-rate-val').textContent = `${parseFloat(state.settings.speechRate).toFixed(2).replace(/\.00$/, '.0')}×`;
+            document.getElementById('setting-auto-audio').checked = state.settings.autoAudio;
+            document.getElementById('setting-auto-sentence').checked = state.settings.autoSentence;
+            document.getElementById('setting-daily-goal').value = state.settings.dailyGoal;
+            document.getElementById('daily-goal-val').textContent = `${state.settings.dailyGoal} min`;
+            document.getElementById('daily-goal-display').textContent = `${state.settings.dailyGoal}m`;
+
+            const newLimitVal = parseInt(state.settings.dailyNewLimit, 10) || 20;
+            document.getElementById('setting-daily-new-limit').value = newLimitVal;
+            document.getElementById('daily-new-limit-val').textContent = newLimitVal > 100 ? 'Neomezeně' : `${newLimitVal} slov / den`;
+
+            document.getElementById('setting-dark-mode').checked = state.settings.darkMode;
+            document.getElementById('streak-display').textContent = `🔥 ${state.stats.streak}`;
+            updateCounters();
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(state.stats.todaySeconds / 60);
+            const secs = state.stats.todaySeconds % 60;
+            document.getElementById('study-timer').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateStatsModal() {
+            const total = state.cards.length;
+            const mastered = Object.values(state.progress).filter(p => p.interval >= 3).length;
+            document.getElementById('stat-mastered').textContent = mastered;
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-today').textContent = state.stats.todayReviewed;
+            const s = state.stats.streak;
+            document.getElementById('stat-streak').textContent = s === 1 ? '1 den' : (s >= 2 && s <= 4 ? `${s} dny` : `${s} dní`);
+        }
+
+        // --- INICIALIZACE A UDÁLOSTI ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            applyTheme();
+            syncUI();
+            updateTimerDisplay();
+            loadNextCard();
+
+            setInterval(() => {
+                if (!document.hidden) {
+                    state.stats.todaySeconds += 1;
+                    updateTimerDisplay();
+                    if (state.stats.todaySeconds % 15 === 0) saveState();
+                }
+            }, 1000);
+
+            document.getElementById('lang-es').addEventListener('click', () => {
+                state.filters.lang = 'es';
+                extraPracticeLimit = 0;
+                saveState();
+                syncUI();
+                loadNextCard();
+            });
+
+            document.getElementById('lang-en').addEventListener('click', () => {
+                state.filters.lang = 'en';
+                extraPracticeLimit = 0;
+                saveState();
+                syncUI();
+                loadNextCard();
+            });
+
+            document.getElementById('filter-level').addEventListener('change', (e) => {
+                state.filters.level = e.target.value;
+                extraPracticeLimit = 0;
+                saveState();
+                loadNextCard();
+            });
+
+            document.getElementById('filter-pos').addEventListener('change', (e) => {
+                state.filters.pos = e.target.value;
+                extraPracticeLimit = 0;
+                saveState();
+                loadNextCard();
+            });
+
+            document.getElementById('flashcard').addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                if (!isFlipped) flipCard();
+            });
+
+            document.getElementById('flip-btn').addEventListener('click', flipCard);
+
+            document.querySelectorAll('.rating-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const rating = parseInt(btn.getAttribute('data-rating'), 10);
+                    rateCard(rating);
+                });
+            });
+
+            document.getElementById('increase-limit-btn').addEventListener('click', () => {
+                bonusNewWordsToday += 10;
+                loadNextCard();
+            });
+
+            document.getElementById('practice-extra-btn').addEventListener('click', () => {
+                extraPracticeLimit = 10;
+                loadNextCard();
+            });
+
+            document.getElementById('quick-audio-btn').addEventListener('click', handleQuickSoundBtn);
+            document.getElementById('card-audio-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleWordAudioTrigger();
+            });
+            document.getElementById('example-audio-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (currentCard && currentCard.exForeign) {
+                    speakText(currentCard.exForeign, false, true);
+                }
+            });
+
+            const addModal = document.getElementById('add-modal');
+            const statsModal = document.getElementById('stats-modal');
+            const settingsModal = document.getElementById('settings-modal');
+            const dictModal = document.getElementById('dict-modal');
+
+            // Klávesové zkratky (Mezerník pro odhalení, 1-4 pro hodnocení)
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+                if (!addModal.classList.contains('hidden') || !statsModal.classList.contains('hidden') || !settingsModal.classList.contains('hidden') || !dictModal.classList.contains('hidden')) return;
+
+                if (e.code === 'Space' && !isFlipped && currentCard) {
+                    e.preventDefault();
+                    flipCard();
+                } else if (isFlipped && ['1', '2', '3', '4'].includes(e.key)) {
+                    e.preventDefault();
+                    rateCard(parseInt(e.key, 10));
+                }
+            });
+
+            document.getElementById('delete-custom-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!currentCard || !currentCard.id.startsWith('custom-')) return;
+                state.cards = state.cards.filter(c => c.id !== currentCard.id);
+                delete state.progress[currentCard.id];
+                saveState();
+                showToast('Kartička smazána');
+                loadNextCard();
+            });
+
+            // Záložka Kompletní slovník
+            document.getElementById('open-dict-btn').addEventListener('click', () => {
+                document.getElementById('dict-filter-level').value = state.filters.level;
+                renderDictionaryList();
+                dictModal.classList.remove('hidden');
+            });
+            document.getElementById('close-dict-btn').addEventListener('click', () => {
+                dictModal.classList.add('hidden');
+            });
+            document.getElementById('dict-search-input').addEventListener('input', renderDictionaryList);
+            document.getElementById('dict-filter-level').addEventListener('change', renderDictionaryList);
+            document.getElementById('dict-filter-status').addEventListener('change', renderDictionaryList);
+
+            document.getElementById('dict-list-container').addEventListener('click', (e) => {
+                const speakBtn = e.target.closest('.dict-speak-btn');
+                if (speakBtn) {
+                    e.stopPropagation();
+                    const w = speakBtn.getAttribute('data-word');
+                    if (w) speakText(w, false, true);
+                    return;
+                }
+                const item = e.target.closest('.dict-item');
+                if (item) {
+                    const detail = item.querySelector('.dict-detail');
+                    if (detail) detail.classList.toggle('hidden');
+                }
+            });
+
+            // Modální okna
+            document.getElementById('open-add-btn').addEventListener('click', () => {
+                document.getElementById('new-lang').value = state.filters.lang;
+                if (state.filters.level !== 'all') document.getElementById('new-level').value = state.filters.level;
+                addModal.classList.remove('hidden');
+            });
+            document.getElementById('close-add-btn').addEventListener('click', () => addModal.classList.add('hidden'));
+
+            document.getElementById('open-stats-btn').addEventListener('click', () => {
+                updateStatsModal();
+                statsModal.classList.remove('hidden');
+            });
+            document.getElementById('close-stats-btn').addEventListener('click', () => statsModal.classList.add('hidden'));
+
+            document.getElementById('open-settings-btn').addEventListener('click', () => {
+                settingsModal.classList.remove('hidden');
+            });
+            document.getElementById('close-settings-btn').addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+            document.getElementById('add-card-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const newCard = {
+                    id: 'custom-' + Date.now(),
+                    lang: document.getElementById('new-lang').value,
+                    level: document.getElementById('new-level').value,
+                    pos: document.getElementById('new-pos').value,
+                    word: document.getElementById('new-word').value.trim(),
+                    phonetic: document.getElementById('new-phonetic').value.trim(),
+                    translation: document.getElementById('new-translation').value.trim(),
+                    mnemonic: document.getElementById('new-mnemonic').value.trim(),
+                    exForeign: document.getElementById('new-ex-foreign').value.trim(),
+                    exCs: document.getElementById('new-ex-cs').value.trim()
+                };
+                if (!newCard.word || !newCard.translation) return;
+
+                state.cards.unshift(newCard);
+                saveState();
+                e.target.reset();
+                addModal.classList.add('hidden');
+                showToast('Kartička přidána');
+                loadNextCard();
+            });
+
+            // Nastavení denních cílů a hlasu
+            document.getElementById('setting-daily-goal').addEventListener('input', (e) => {
+                state.settings.dailyGoal = parseInt(e.target.value, 10);
+                document.getElementById('daily-goal-val').textContent = `${state.settings.dailyGoal} min`;
+                document.getElementById('daily-goal-display').textContent = `${state.settings.dailyGoal}m`;
+                saveState();
+            });
+
+            document.getElementById('setting-daily-new-limit').addEventListener('input', (e) => {
+                const val = parseInt(e.target.value, 10);
+                state.settings.dailyNewLimit = val;
+                document.getElementById('daily-new-limit-val').textContent = val > 100 ? 'Neomezeně' : `${val} slov / den`;
+                saveState();
+                updateCounters();
+                if (!currentCard) loadNextCard();
+            });
+
+            document.getElementById('setting-voice-profile').addEventListener('change', (e) => {
+                state.settings.voiceProfile = e.target.value;
+                saveState();
+            });
+
+            document.getElementById('test-voice-btn').addEventListener('click', () => {
+                const sample = state.filters.lang === 'es'
+                    ? 'Hola, así suena mi voz para practicar español.'
+                    : 'Hello, this is how my voice sounds for practicing English.';
+                speakText(sample, false, true);
+            });
+
+            document.getElementById('setting-speech-rate').addEventListener('input', (e) => {
+                state.settings.speechRate = parseFloat(e.target.value);
+                document.getElementById('speech-rate-val').textContent = `${state.settings.speechRate.toFixed(2).replace(/\.00$/, '.0')}×`;
+                saveState();
+            });
+
+            document.getElementById('setting-auto-audio').addEventListener('change', (e) => {
+                state.settings.autoAudio = e.target.checked;
+                saveState();
+            });
+
+            document.getElementById('setting-auto-sentence').addEventListener('change', (e) => {
+                state.settings.autoSentence = e.target.checked;
+                saveState();
+            });
+
+            document.getElementById('setting-dark-mode').addEventListener('change', (e) => {
+                state.settings.darkMode = e.target.checked;
+                applyTheme();
+                saveState();
+            });
+
+            document.getElementById('export-btn').addEventListener('click', () => {
+                const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ankismart-zaloha-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('Záloha stažena');
+            });
+
+            document.getElementById('import-input').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const imported = JSON.parse(ev.target.result);
+                        if (imported && imported.cards) {
+                            state = { ...state, ...imported };
+                            saveState();
+                            applyTheme();
+                            syncUI();
+                            loadNextCard();
+                            updateStatsModal();
+                            showToast('Záloha úspěšně obnovena');
+                        }
+                    } catch (err) {
+                        showToast('Neplatný soubor zálohy');
+                    }
+                };
+                reader.readAsText(file);
+            });
+
+            // Import Anki balíčků (.apkg). Knihovny se načtou až při importu.
+            const apkgInput = document.getElementById('apkg-import-input');
+            if (apkgInput) apkgInput.addEventListener('change', async (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                const status = document.getElementById('apkg-import-status');
+                const lang = document.getElementById('apkg-lang').value;
+                const level = document.getElementById('apkg-level').value;
+                status.textContent = 'Načítám balíček…';
+                try {
+                    const loadScript = (src, test) => new Promise((resolve,reject) => {
+                        if (test()) return resolve();
+                        const script=document.createElement('script'); script.src=src; script.onload=()=>test()?resolve():reject(new Error('Knihovnu se nepodařilo inicializovat.')); script.onerror=()=>reject(new Error('Knihovnu se nepodařilo stáhnout.')); document.head.appendChild(script);
+                    });
+                    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',()=>!!window.JSZip);
+                    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js',()=>!!window.initSqlJs);
+                    status.textContent = 'Rozbaluji soubor a čtu databázi…';
+                    const zip = await JSZip.loadAsync(file);
+                    let dbName = ['collection.anki2','collection.anki21'].find(n=>zip.file(n));
+                    let dbBytes;
+                    if (dbName) dbBytes = new Uint8Array(await zip.file(dbName).async('uint8array'));
+                    else if (zip.file('collection.anki21b')) {
+                        await loadScript('https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js',()=>!!window.fzstd);
+                        dbBytes = window.fzstd.decompress(new Uint8Array(await zip.file('collection.anki21b').async('uint8array')));
+                        dbName = 'collection.anki21b';
+                    } else throw new Error('V souboru nebyla nalezena podporovaná Anki databáze.');
+                    const SQL = await initSqlJs({locateFile: name=>'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/'+name});
+                    const db = new SQL.Database(dbBytes);
+                    const tableNames = db.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]?.values?.flat() || [];
+                    if (!tableNames.includes('notes')) throw new Error('V balíčku chybí tabulka poznámek.');
+                    const notesResult = db.exec('SELECT id, mid, flds FROM notes');
+                    const notes = notesResult[0]?.values || [];
+                    let mediaMap = {};
+                    if (zip.file('media')) { try { mediaMap = JSON.parse(await zip.file('media').async('string')); } catch (_) {} }
+                    const mediaByName = new Map();
+                    let savedImageBytes = 0;
+                    for (const [num, originalName] of Object.entries(mediaMap)) {
+                        const zf = zip.file(String(num));
+                        if (!zf || !/\.(png|jpe?g|webp|gif)$/i.test(originalName)) continue;
+                        const base64 = await zf.async('base64');
+                        const ext = (originalName.split('.').pop()||'png').toLowerCase();
+                        const mime = ext==='jpg'||ext==='jpeg'?'image/jpeg':`image/${ext}`;
+                        // Limit velikosti chrání úložiště prohlížeče; velká média zůstanou v balíčku, nikoli v kartě.
+                        if (base64.length < 48000 && savedImageBytes + base64.length < 1000000) { mediaByName.set(originalName, `data:${mime};base64,${base64}`); savedImageBytes += base64.length; }
+                    }
+                    const stripHtml = value => String(value||'').replace(/<br\s*\/?\s*>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/\s+/g,' ').trim();
+                    const existing = new Set(state.cards.map(c=>`${c.lang}:${c.word.toLocaleLowerCase()}`));
+                    let added=0, duplicates=0;
+                    for (const row of notes) {
+                        const fields = String(row[2]||'').split('\x1f');
+                        const frontRaw = fields[0]||'';
+                        const word = stripHtml(frontRaw).replace(/\[sound:[^\]]+\]/g,'').trim();
+                        const translation = stripHtml(fields[1]||'');
+                        if (!word || !translation) continue;
+                        const key=`${lang}:${word.toLocaleLowerCase()}`;
+                        if (existing.has(key)) { duplicates++; continue; }
+                        existing.add(key);
+                        const imageMatch = frontRaw.match(/<img[^>]+src=["']([^"']+)["']/i) || String(fields[1]||'').match(/<img[^>]+src=["']([^"']+)["']/i);
+                        const mediaName = imageMatch ? imageMatch[1] : null;
+                        const imageData = mediaName ? mediaByName.get(mediaName) : null;
+                        const example = fields.length>2 ? stripHtml(fields[2]) : '';
+                        const id = `apkg-${String(row[0])}-${Date.now().toString(36)}`;
+                        state.cards.push({id,lang,level,pos:'Importováno',word,phonetic:'',translation,mnemonic:'',exForeign:example,exCs:'',imageData:imageData||undefined,source:'Anki import'});
+                        added++;
+                    }
+                    db.close();
+                    state.filters.lang = lang; state.filters.level = level;
+                    saveState(); syncUI(); updateCounters(); updateStatsModal(); loadNextCard();
+                    status.textContent = `Import dokončen: přidáno ${added} karet, přeskočeno duplicit ${duplicates}.`; 
+                    showToast(`Importováno ${added} kartiček`);
+                } catch (err) {
+                    console.error('Anki import:',err);
+                    status.textContent = `Import se nezdařil: ${err.message||'neznámá chyba'}`;
+                    showToast('Import balíčku se nezdařil');
+                } finally { e.target.value=''; }
+            });
+        });
+    </script>
+
+<script>
+(() => {
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  let installPrompt = null;
+
+  const install = document.createElement('button');
+  install.type = 'button';
+  install.id = 'pwa-install-button';
+  install.textContent = '＋ Nainstalovat aplikaci';
+  install.setAttribute('aria-label', 'Nainstalovat AnkiSmart jako aplikaci');
+  install.style.cssText = 'position:fixed;z-index:9999;right:14px;bottom:calc(16px + env(safe-area-inset-bottom));display:none;padding:12px 16px;border:1px solid #475569;border-radius:14px;background:#2563eb;color:white;font:600 14px Inter,system-ui,sans-serif;box-shadow:0 8px 28px #0005;';
+  document.body.appendChild(install);
+
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => console.warn('Service worker:', err));
+    });
+  }
+
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    installPrompt = event;
+    if (!isStandalone) install.style.display = 'block';
+  });
+
+  install.addEventListener('click', async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    installPrompt = null;
+    install.style.display = 'none';
+  });
+
+  window.addEventListener('appinstalled', () => {
+    install.style.display = 'none';
+    install.textContent = 'AnkiSmart je nainstalovaný';
+  });
+})();
+</script>
+
+</body>
+</html>
