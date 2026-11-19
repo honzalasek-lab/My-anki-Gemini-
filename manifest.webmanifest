@@ -1,17 +1,25 @@
 {
-  "id": "./",
-  "name": "AnkiSmart – Chytré kartičky",
   "short_name": "AnkiSmart",
-  "description": "Offline procvičování anglických a španělských slovíček.",
-  "lang": "cs",
+  "name": "AnkiSmart - Chytré kartičky",
+  "description": "Chytré jazykové kartičky s 3D animacemi a automatickým vyhledáváním obrázkových asociací.",
   "start_url": "./index.html",
-  "scope": "./",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#020617",
-  "theme_color": "#0f172a",
-  
-    "icons": [
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "./icon-192.png",
       "sizes": "192x192",
@@ -25,3 +33,4 @@
       "purpose": "maskable"
     }
   ]
+}
