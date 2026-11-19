@@ -1,4 +1,4 @@
-const CACHE = 'ankismart-shell-v2';
+const CACHE = 'ankismart-shell-v3';
 const IMG_CACHE = 'ankismart-images-v1';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
