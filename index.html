@@ -198,9 +198,11 @@
                 
                 <!-- Horní metadata karty -->
                 <div class="flex items-center justify-between gap-2 shrink-0">
-                    <div class="flex items-center gap-1.5">
+                    <div class="flex items-center gap-1.5 flex-wrap">
                         <span id="card-level-badge" class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-bold tracking-wide">B1-B2</span>
                         <span id="card-pos-badge" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11px] font-medium">Sloveso</span>
+                        <span id="card-mode-badge" class="hidden px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-300 text-[11px] font-bold">🔄 CZ → Cizí</span>
+                        <span id="card-leech-badge" class="hidden px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-300 text-[11px] font-bold" title="Těžké slovíčko – zkrácený interval opakování">🔥 Těžké</span>
                     </div>
                     <button id="delete-custom-btn" type="button" aria-label="Smazat tuto vlastní kartu" class="hidden p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-xs transition-colors" title="Smazat vlastní kartu">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -630,6 +632,14 @@
                     <input id="setting-auto-sentence" type="checkbox" checked class="w-5 h-5 accent-blue-600 rounded">
                 </div>
 
+                <div class="flex items-center justify-between py-1">
+                    <div>
+                        <div class="text-sm font-bold">Zrcadlový režim (CZ → Cizí)</div>
+                        <div class="text-xs text-slate-400">U pokročilých karet (4+ dny) občas otočí směr zkoušení</div>
+                    </div>
+                    <input id="setting-mirror-mode" type="checkbox" checked class="w-5 h-5 accent-blue-600 rounded">
+                </div>
+
                 <!-- Tmavý režim -->
                 <div class="flex items-center justify-between py-1 border-t border-slate-200 dark:border-slate-800 pt-3">
                     <div>
@@ -1048,6 +1058,7 @@
                 autoAudio: true,
                 autoSentence: true,
                 autoPhotos: true,
+                mirrorMode: true,
                 pexelsApiKey: '',
                 soundMuted: false,
                 dailyGoal: 15,
@@ -1064,9 +1075,12 @@
         };
 
         let currentCard = null;
+        let currentCardMirrored = false;
         let isFlipped = false;
         let extraPracticeLimit = 0;
         let bonusNewWordsToday = 0;
+        let recentCardIds = [];
+        let sessionLapses = {};
         let availableVoices = [];
         let lastWordClickTime = 0;
         let lastQuickSoundClickTime = 0;
@@ -1641,23 +1655,75 @@
             document.getElementById('interval-4').textContent = p.reps === 0 ? '4 dny' : formatInterval(Math.max(4320, baseDays * 1440 * ease * 1.3));
         }
 
+        // Zvýraznění cílového slova ve vzorové větě (bez rozbití diakritiky)
+        function highlightTargetWordInSentence(sentence, targetWord) {
+            if (!sentence) return '';
+            const escapeHtml = s => s.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+            const safeSentence = escapeHtml(sentence);
+            if (!targetWord) return safeSentence;
+
+            const cleaned = targetWord
+                .replace(/^(to|a|an|the|el|la|los|las|un|una)\s+/i, '')
+                .replace(/\(.*?\)/g, '')
+                .trim();
+            if (!cleaned || cleaned.length < 2) return safeSentence;
+
+            const tokens = cleaned.split(/\s+/).filter(t => t.length >= 2);
+            if (!tokens.length) return safeSentence;
+
+            // Vytvoříme regulární výraz pokrývající i základní ohnuté tvary (kmen min. 4 znaky)
+            const patterns = tokens.map(tok => {
+                const esc = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                if (tok.length >= 5) {
+                    const stem = tok.slice(0, -1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    return `(?:${esc}|${stem}[a-záéíóúñü]*)`;
+                }
+                return esc;
+            });
+
+            const regex = new RegExp(`(?<![A-Za-zÁÉÍÓÚÑÜáéíóúñü])(${patterns.join('\\s+')})(?![A-Za-zÁÉÍÓÚÑÜáéíóúñü])`, 'gi');
+            return safeSentence.replace(regex, '<mark class="bg-blue-500/15 text-blue-700 dark:text-blue-300 font-extrabold px-1 rounded">$1</mark>');
+        }
+
         function rateCard(rating) {
             if (!currentCard) return;
             const now = Date.now();
             const isBrandNew = !state.progress[currentCard.id];
-            const p = state.progress[currentCard.id] || { interval: 0, ease: 2.5, reps: 0, due: now };
+            const p = state.progress[currentCard.id] || { interval: 0, ease: 2.5, reps: 0, lapses: 0, due: now };
+
+            // Uložíme do krátké historie posledních karet (ochrana Min-Gap proti okamžitému opakování)
+            recentCardIds.push(currentCard.id);
+            if (recentCardIds.length > 4) recentCardIds.shift();
 
             let nextMinutes = 10;
             if (rating === 1) {
-                p.reps = 0; p.interval = 0; p.ease = Math.max(1.3, p.ease - 0.2); nextMinutes = 1;
+                p.reps = 0;
+                p.interval = 0;
+                p.lapses = (p.lapses || 0) + 1;
+                sessionLapses[currentCard.id] = (sessionLapses[currentCard.id] || 0) + 1;
+
+                // Detekce pijavic (Leech): při 3+ selháních v relaci výrazněji snížíme Ease Factor
+                const penalty = sessionLapses[currentCard.id] >= 3 ? 0.35 : 0.2;
+                p.ease = Math.max(1.3, +(p.ease - penalty).toFixed(2));
+                if (sessionLapses[currentCard.id] === 3) {
+                    showToast('🔥 Těžké slovíčko: zkrácen budoucí interval opakování');
+                }
+
+                // Náhodný rozptyl 45–90 sekund, aby se neznámé karty nevracely v pevném pořadí
+                nextMinutes = 0.75 + Math.random() * 0.75;
             } else if (rating === 2) {
                 p.reps += 1;
-                nextMinutes = p.reps === 1 ? 6 : Math.max(15, (p.interval || 1) * 1440 * 0.8);
+                if (p.reps === 1) {
+                    // Náhodný rozptyl 4.5–7.5 min pro promíchání pořadí
+                    nextMinutes = 4.5 + Math.random() * 3.0;
+                } else {
+                    nextMinutes = Math.max(15, (p.interval || 1) * 1440 * 0.8);
+                }
                 p.interval = nextMinutes / 1440;
-                p.ease = Math.max(1.3, p.ease - 0.15);
+                p.ease = Math.max(1.3, +(p.ease - 0.15).toFixed(2));
             } else if (rating === 3) {
                 p.reps += 1;
-                if (p.reps === 1) nextMinutes = 10;
+                if (p.reps === 1) nextMinutes = 9 + Math.random() * 2;
                 else if (p.reps === 2) nextMinutes = 1440;
                 else nextMinutes = (p.interval || 1) * 1440 * p.ease;
                 p.interval = nextMinutes / 1440;
@@ -1665,7 +1731,7 @@
                 p.reps += 1;
                 nextMinutes = p.reps === 1 ? 4 * 1440 : Math.max(4 * 1440, (p.interval || 1) * 1440 * p.ease * 1.3);
                 p.interval = nextMinutes / 1440;
-                p.ease += 0.15;
+                p.ease = Math.min(3.2, +(p.ease + 0.15).toFixed(2));
             }
 
             p.due = now + nextMinutes * 60 * 1000;
@@ -1683,6 +1749,15 @@
             isFlipped = false;
             clearTimeout(window._flipRevealTimer);
 
+            const prog = state.progress[card.id];
+            // Zrcadlový režim (CZ -> Cizí): aktivuje se náhodně (50 %) u karet s intervalem >= 4 dny
+            currentCardMirrored = !!(
+                state.settings.mirrorMode !== false &&
+                prog &&
+                prog.interval >= 4 &&
+                Math.random() < 0.5
+            );
+
             const flashcardEl = document.getElementById('flashcard');
             if (flashcardEl) {
                 flashcardEl.classList.remove('card-flip-animate', 'card-enter-animate');
@@ -1694,22 +1769,53 @@
             const visualWrapper = document.getElementById('card-visual-wrapper');
             const flipBtn = document.getElementById('flip-btn');
             const ratingBtns = document.getElementById('rating-buttons');
+            const audioRow = document.getElementById('card-audio-btn')?.parentElement;
 
             if (answerSection) { answerSection.classList.add('hidden', 'is-hidden'); answerSection.classList.remove('is-visible'); }
-            if (visualWrapper) { visualWrapper.classList.add('hidden', 'is-hidden'); visualWrapper.classList.remove('is-visible'); }
-            if (flipBtn) flipBtn.classList.remove('hidden');
+            if (flipBtn) {
+                flipBtn.classList.remove('hidden');
+                flipBtn.textContent = currentCardMirrored ? 'Zobrazit cizí slovíčko' : 'Zobrazit překlad';
+            }
             if (ratingBtns) ratingBtns.classList.add('hidden');
 
             document.getElementById('card-level-badge').textContent = card.level;
             document.getElementById('card-pos-badge').textContent = card.pos;
-            document.getElementById('card-word').textContent = card.word;
-            document.getElementById('card-phonetic').textContent = card.phonetic || '';
-            document.getElementById('card-translation').textContent = card.translation;
+
+            const modeBadge = document.getElementById('card-mode-badge');
+            if (modeBadge) modeBadge.classList.toggle('hidden', !currentCardMirrored);
+
+            const leechBadge = document.getElementById('card-leech-badge');
+            const isLeech = (sessionLapses[card.id] || 0) >= 3 || (prog && (prog.lapses || 0) >= 4 && prog.ease <= 1.7);
+            if (leechBadge) leechBadge.classList.toggle('hidden', !isLeech);
 
             const deleteBtn = document.getElementById('delete-custom-btn');
             deleteBtn.classList.toggle('hidden', !(card.id.startsWith('custom-') || card.id.startsWith('apkg-')));
 
             loadVisualForCard(card);
+
+            if (currentCardMirrored) {
+                // V zrcadlovém režimu ukážeme napřed český překlad + obrázek a skryjeme cizí výslovnost
+                document.getElementById('card-word').textContent = card.translation;
+                document.getElementById('card-phonetic').textContent = '';
+                if (audioRow) audioRow.classList.add('hidden');
+                document.getElementById('card-translation').textContent = `${card.word}${card.phonetic ? '  ' + card.phonetic : ''}`;
+
+                if (visualWrapper) {
+                    visualWrapper.classList.remove('hidden', 'is-hidden');
+                    visualWrapper.classList.add('is-visible');
+                }
+            } else {
+                // Standardní režim: Cizí slovíčko -> překlad + obrázek
+                document.getElementById('card-word').textContent = card.word;
+                document.getElementById('card-phonetic').textContent = card.phonetic || '';
+                if (audioRow) audioRow.classList.remove('hidden');
+                document.getElementById('card-translation').textContent = card.translation;
+
+                if (visualWrapper) {
+                    visualWrapper.classList.add('hidden', 'is-hidden');
+                    visualWrapper.classList.remove('is-visible');
+                }
+            }
 
             const mnemonicBox = document.getElementById('card-mnemonic-box');
             if (card.mnemonic) {
@@ -1722,7 +1828,7 @@
             const exampleBox = document.getElementById('card-example-box');
             if (card.exForeign) {
                 exampleBox.classList.remove('hidden');
-                document.getElementById('card-example-es').textContent = card.exForeign;
+                document.getElementById('card-example-es').innerHTML = highlightTargetWordInSentence(card.exForeign, card.word);
                 document.getElementById('card-example-cs').textContent = card.exCs || '';
             } else {
                 exampleBox.classList.add('hidden');
@@ -1730,7 +1836,7 @@
 
             previewIntervals(card);
 
-            if (state.settings.autoAudio) {
+            if (state.settings.autoAudio && !currentCardMirrored) {
                 setTimeout(() => speakText(card.word, false), 180);
             }
         }
@@ -1747,12 +1853,17 @@
 
             const answerSection = document.getElementById('answer-section');
             const visualWrapper = document.getElementById('card-visual-wrapper');
+            const audioRow = document.getElementById('card-audio-btn')?.parentElement;
 
             document.getElementById('flip-btn').classList.add('hidden');
             document.getElementById('rating-buttons').classList.remove('hidden');
 
             // Odhalíme zadní stranu přesně v polovině 3D otočky (220 ms)
             window._flipRevealTimer = setTimeout(() => {
+                if (currentCardMirrored) {
+                    document.getElementById('card-phonetic').textContent = currentCard.phonetic || '';
+                    if (audioRow) audioRow.classList.remove('hidden');
+                }
                 if (visualWrapper) {
                     visualWrapper.classList.remove('hidden');
                     requestAnimationFrame(() => {
@@ -1769,29 +1880,86 @@
                 }
             }, 220);
 
-            if (state.settings.autoSentence && currentCard.exForeign) {
+            if (currentCardMirrored) {
+                if (state.settings.autoAudio) {
+                    setTimeout(() => speakText(currentCard.word, false), 260);
+                }
+                if (state.settings.autoSentence && currentCard.exForeign) {
+                    setTimeout(() => speakText(currentCard.exForeign, false), 1250);
+                }
+            } else if (state.settings.autoSentence && currentCard.exForeign) {
                 setTimeout(() => speakText(currentCard.exForeign, false), 320);
             }
+        }
+
+        function pickRandomWithMinGap(pool) {
+            if (!pool || pool.length === 0) return null;
+            if (pool.length === 1) return pool[0];
+
+            const lastId = recentCardIds[recentCardIds.length - 1];
+            const nonImmediate = pool.filter(c => c.id !== lastId);
+            const candidates = nonImmediate.length > 0 ? nonImmediate : pool;
+
+            // Preferujeme karty, které nebyly v posledních 2 krocích
+            const freshCandidates = candidates.filter(c => !recentCardIds.slice(-2).includes(c.id));
+            const finalPool = freshCandidates.length > 0 ? freshCandidates : candidates;
+
+            return finalPool[Math.floor(Math.random() * finalPool.length)];
         }
 
         function loadNextCard() {
             updateCounters();
             const cards = getFilteredCards();
             const now = Date.now();
+            const lastId = recentCardIds[recentCardIds.length - 1];
 
+            // 1. Splatné karty (due <= now) – vybíráme NÁHODNĚ, nikoli v pevném pořadí!
             const dueCards = cards.filter(c => {
                 const p = state.progress[c.id];
                 return p && p.due <= now;
-            }).sort((a, b) => state.progress[a.id].due - state.progress[b.id].due);
+            });
+
+            // 2. Karty v aktivním vnitrodenním učení (reps === 0 nebo interval < 0.02 dne), které čekají jen pár desítek sekund
+            const shortLearningCards = cards.filter(c => {
+                const p = state.progress[c.id];
+                return p && p.due > now && p.due <= now + 10 * 60 * 1000 && p.interval < 0.02;
+            });
 
             const newCards = cards.filter(c => !state.progress[c.id]);
             const limitReached = isNewLimitReached();
 
-            let next = dueCards[0] || null;
-            if (!next && !limitReached && newCards.length > 0) next = newCards[0];
+            let next = null;
+
+            // Pokud máme splatné karty, náhodně vylosujeme z nich (s ochranou proti okamžitému opakování stejné karty)
+            if (dueCards.length > 0) {
+                const nonLastDue = dueCards.filter(c => c.id !== lastId);
+                if (nonLastDue.length > 0) {
+                    next = pickRandomWithMinGap(nonLastDue);
+                } else if (!limitReached && newCards.length > 0) {
+                    // Ochrana proti efektu ozvěny: místo stejné karty hned po sobě vložíme 1 novou kartu jako "spacer"
+                    next = newCards[Math.floor(Math.random() * Math.min(newCards.length, 8))];
+                } else {
+                    next = dueCards[0];
+                }
+            }
+
+            // Pokud není žádná splatná karta, vezmeme novou kartu (z náhodného výběru z prvních 6 nových, ať není pořadí rigidní)
+            if (!next && !limitReached && newCards.length > 0) {
+                const windowSlice = newCards.slice(0, Math.min(newCards.length, 6));
+                next = pickRandomWithMinGap(windowSlice) || newCards[0];
+            }
+
+            // Pokud už došly nové karty (nebo je dosažen denní limit), ale v relaci ještě čekají rozpracované karty (< 10 min),
+            // natáhneme je dříve (s náhodným výběrem), aby uživatel nemusel zbytečně čekat na odpočet
+            if (!next && shortLearningCards.length > 0) {
+                next = pickRandomWithMinGap(shortLearningCards);
+            }
+
+            // Extra procvičování nad rámec limitu
             if (!next && extraPracticeLimit > 0 && cards.length > 0) {
                 const sorted = [...cards].sort((a, b) => (state.progress[a.id]?.due || 0) - (state.progress[b.id]?.due || 0));
-                next = sorted[0];
+                const topSlice = sorted.slice(0, Math.min(sorted.length, 8));
+                next = pickRandomWithMinGap(topSlice) || sorted[0];
             }
 
             const flashcardArea = document.getElementById('flashcard-area');
@@ -1921,6 +2089,8 @@
             document.getElementById('speech-rate-val').textContent = `${parseFloat(state.settings.speechRate).toFixed(2).replace(/\.00$/, '.0')}×`;
             document.getElementById('setting-auto-audio').checked = state.settings.autoAudio;
             document.getElementById('setting-auto-sentence').checked = state.settings.autoSentence;
+            const mirrorEl = document.getElementById('setting-mirror-mode');
+            if (mirrorEl) mirrorEl.checked = state.settings.mirrorMode !== false;
             document.getElementById('setting-auto-photos').checked = state.settings.autoPhotos !== false;
             document.getElementById('setting-pexels-key').value = state.settings.pexelsApiKey || '';
 
@@ -2240,6 +2410,10 @@
             });
             document.getElementById('setting-auto-sentence').addEventListener('change', (e) => {
                 state.settings.autoSentence = e.target.checked; saveState();
+            });
+            document.getElementById('setting-mirror-mode').addEventListener('change', (e) => {
+                state.settings.mirrorMode = e.target.checked; saveState();
+                if (currentCard && !isFlipped) renderCard(currentCard);
             });
             document.getElementById('setting-dark-mode').addEventListener('change', (e) => {
                 state.settings.darkMode = e.target.checked; applyTheme(); saveState();
