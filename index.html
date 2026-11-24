@@ -156,7 +156,7 @@
             <button id="open-dict-btn" type="button" aria-label="Přehled kompletních slovíček (Slovník)" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-colors" title="Slovník – přehled všech slovíček">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
             </button>
-            <button id="open-stats-btn" type="button" aria-label="Statistiky a stažení slovníků" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-colors" title="Statistiky a stažení slovníků">
+            <button id="open-stats-btn" type="button" aria-label="Statistiky, balíčky a import z Anki" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-colors" title="Balíčky, import z Anki a statistiky">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
             </button>
             <button id="open-settings-btn" type="button" aria-label="Nastavení denních cílů, obrázků a hlasu" class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-blue-500 transition-colors" title="Nastavení">
@@ -165,15 +165,19 @@
         </div>
     </header>
 
-    <!-- Druhá řada: Filtry + Denní cíle -->
-    <div class="w-full max-w-xl mx-auto px-3 pb-1.5 flex items-center justify-between gap-1 shrink-0">
-        <div class="flex items-center gap-1 min-w-0">
-            <select id="filter-level" aria-label="Filtr jazykové úrovně" class="bg-white/70 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 text-[11px] font-medium rounded-lg px-1.5 py-1 text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <!-- Druhá řada: Výběr balíčku, Filtry + Denní cíle -->
+    <div class="w-full max-w-xl mx-auto px-3 pb-1.5 flex flex-wrap items-center justify-between gap-1.5 shrink-0">
+        <div class="flex items-center gap-1 min-w-0 flex-1">
+            <select id="filter-deck" aria-label="Výběr studijního balíčku" class="bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 text-[11px] font-bold rounded-lg px-1.5 py-1 text-blue-600 dark:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[140px] sm:max-w-[190px] truncate">
+                <option value="all">Balíček: Vše</option>
+                <option value="builtin">Základní slovník</option>
+            </select>
+            <select id="filter-level" aria-label="Filtr jazykové úrovně" class="bg-white/70 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 text-[11px] font-medium rounded-lg px-1.5 py-1 text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0">
                 <option value="all">Úroveň: Vše</option>
                 <option value="A1-A2">A1–A2</option>
                 <option value="B1-B2">B1–B2</option>
             </select>
-            <select id="filter-pos" aria-label="Filtr druhu výrazu" class="bg-white/70 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 text-[11px] font-medium rounded-lg px-1.5 py-1 text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select id="filter-pos" aria-label="Filtr druhu výrazu" class="bg-white/70 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800/70 text-[11px] font-medium rounded-lg px-1.5 py-1 text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0">
                 <option value="all">Druh: Vše</option>
                 <option value="word">Slovíčko</option>
                 <option value="phrase">Fráze</option>
@@ -202,6 +206,7 @@
                     <div class="flex items-center gap-1.5 flex-wrap">
                         <span id="card-level-badge" class="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-bold tracking-wide">B1-B2</span>
                         <span id="card-pos-badge" class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[11px] font-medium">Sloveso</span>
+                        <span id="card-deck-badge" class="hidden px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-[11px] font-semibold max-w-[150px] truncate"></span>
                         <span id="card-mode-badge" class="hidden px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-600 dark:text-purple-300 text-[11px] font-bold">🔄 CZ → Cizí</span>
                         <span id="card-leech-badge" class="hidden px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-300 text-[11px] font-bold" title="Těžké slovíčko – zkrácený interval opakování">🔥 Těžké</span>
                     </div>
@@ -318,16 +323,13 @@
                 <button id="close-image-picker-btn" type="button" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white">✕</button>
             </div>
 
-            <!-- Vyhledání jiného motivu -->
             <div class="flex gap-2">
                 <input id="img-picker-query" type="text" placeholder="Hledat anglicky (např. morning coffee)..." class="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-medium">
                 <button id="img-picker-search-btn" type="button" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shrink-0">Hledat</button>
             </div>
 
-            <!-- Mřížka návrhů -->
             <div id="img-picker-results" class="grid grid-cols-2 gap-2.5 min-h-[140px]"></div>
 
-            <!-- Vlastní fotka ze zařízení nebo URL -->
             <div class="border-t border-slate-200 dark:border-slate-800 pt-3 space-y-2">
                 <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Vlastní obrázek</div>
                 <div class="grid grid-cols-2 gap-2">
@@ -368,13 +370,16 @@
                     <input id="dict-search-input" type="search" placeholder="Hledat cizí slovíčko nebo český překlad..." class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <select id="dict-filter-level" aria-label="Filtr úrovně ve slovníku" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        <option value="all">Úroveň: Vše</option>
-                        <option value="A1-A2">A1–A2 (Základní)</option>
-                        <option value="B1-B2">B1–B2 (Pokročilé)</option>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <select id="dict-filter-deck" aria-label="Filtr balíčku ve slovníku" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
+                        <option value="all">Balíček: Vše</option>
                     </select>
-                    <select id="dict-filter-status" aria-label="Filtr stavu znalosti ve slovníku" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <select id="dict-filter-level" aria-label="Filtr úrovně ve slovníku" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        <option value="all">Úroveň: Vše</option>
+                        <option value="A1-A2">A1–A2</option>
+                        <option value="B1-B2">B1–B2</option>
+                    </select>
+                    <select id="dict-filter-status" aria-label="Filtr stavu znalosti ve slovníku" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
                         <option value="all">Stav: Vše</option>
                         <option value="new">🔵 Nové</option>
                         <option value="learning">🟡 Učím se</option>
@@ -453,11 +458,11 @@
         </div>
     </div>
 
-    <!-- MODAL: STATISTIKY A ZÁLOHA -->
+    <!-- MODAL: STATISTIKY, BALÍČKY A ANKI IMPORT -->
     <div id="stats-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90dvh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Statistiky & Slovníky</h3>
+                <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Balíčky & Statistiky</h3>
                 <button id="close-stats-btn" type="button" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white">✕</button>
             </div>
             
@@ -481,22 +486,32 @@
             </div>
 
             <div class="space-y-3 border-t border-slate-200 dark:border-slate-800 pt-4">
+                <!-- Import z Anki -->
                 <div class="bg-blue-500/10 border border-blue-500/25 rounded-2xl p-3.5 space-y-2.5">
-                    <div class="text-xs font-extrabold text-blue-600 dark:text-blue-400">Import jazykového balíčku Anki</div>
-                    <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">Stáhni si balíček z AnkiWeb nebo jiného zdroje jako soubor .apkg a vyber ho zde. Import přidá nové kartičky, rozpozná duplicity a automaticky jim stáhne obrázkové asociace.</p>
+                    <div class="text-xs font-extrabold text-blue-600 dark:text-blue-400">Import jazykového balíčku Anki (.apkg)</div>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">Nahrajte balíček z AnkiWeb nebo AnkiDroid jako soubor .apkg. Podporuje klasické i nejnovější Anki balíčky a uloží ho jako samostatný balíček k výběru.</p>
                     <div class="grid grid-cols-2 gap-2">
                       <label class="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Jazyk balíčku
-                        <select id="apkg-lang" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs"><option value="es">Španělština</option><option value="en">Angličtina</option></select>
+                        <select id="apkg-lang" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs"><option value="es">🇪🇸 Španělština</option><option value="en">🇬🇧 Angličtina</option></select>
                       </label>
                       <label class="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Úroveň
                         <select id="apkg-level" class="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs"><option value="A1-A2">A1–A2</option><option value="B1-B2">B1–B2</option></select>
                       </label>
                     </div>
-                    <label class="block w-full py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold text-center cursor-pointer">
+                    <label class="block w-full py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold text-center cursor-pointer transition-colors">
                       📦 Vybrat soubor .apkg
-                      <input id="apkg-import-input" type="file" accept=".apkg,application/zip" class="hidden">
+                      <input id="apkg-import-input" type="file" accept=".apkg,.zip,application/zip,application/x-zip-compressed,application/octet-stream,*/*" class="hidden">
                     </label>
                     <div id="apkg-import-status" class="anki-import-status text-[11px] font-semibold text-center text-blue-600 dark:text-blue-400" aria-live="polite"></div>
+                </div>
+
+                <!-- Správa a výběr nahraných balíčků -->
+                <div class="bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="text-xs font-extrabold text-slate-700 dark:text-slate-200">Nahrané Anki balíčky</div>
+                        <button id="select-all-decks-btn" type="button" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline">Použít vše</button>
+                    </div>
+                    <div id="uploaded-decks-list" class="space-y-2"></div>
                 </div>
 
                 <!-- Hromadné doplnění obrázkových asociací -->
@@ -518,7 +533,7 @@
                     </button>
                     <label class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-center cursor-pointer transition-colors">
                         ⬆️ Obnovit ze souboru
-                        <input id="import-input" type="file" accept=".json" class="hidden">
+                        <input id="import-input" type="file" accept=".json,application/json" class="hidden">
                     </label>
                 </div>
             </div>
@@ -580,7 +595,7 @@
                     </div>
                 </div>
 
-                <!-- Výběr hlasu (přímý výběr systémových/Google hlasů + profily) -->
+                <!-- Výběr hlasu -->
                 <div class="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 space-y-3">
                     <div class="flex items-center justify-between">
                         <label class="text-xs font-bold uppercase tracking-wider text-slate-500">Hlas přednesu</label>
@@ -1046,12 +1061,13 @@
         // --- STAV APLIKACE A PAMĚŤ ---
         const STORAGE_KEY = 'ankismart_v5_state';
         const IMAGE_CACHE_KEY = 'ankismart_img_cache_v1';
-        let imageCache = {}; // { cardId: { url, query } }
+        let imageCache = {};
 
         let state = {
             cards: [...defaultCards],
+            decks: [], // [{ id, name, lang, level, createdAt }]
             progress: {},
-            filters: { lang: 'es', level: 'all', pos: 'all' },
+            filters: { lang: 'es', level: 'all', pos: 'all', deck: 'all' },
             settings: {
                 exactVoice: 'auto',
                 voiceProfile: 'natural',
@@ -1125,10 +1141,34 @@
                         });
                         state.cards = merged;
                     }
+                    if (Array.isArray(parsed.decks)) state.decks = parsed.decks;
                     if (parsed.progress) state.progress = parsed.progress;
                     if (parsed.filters) state.filters = { ...state.filters, ...parsed.filters };
                     if (parsed.settings) state.settings = { ...state.settings, ...parsed.settings };
                     if (parsed.stats) state.stats = { ...state.stats, ...parsed.stats };
+                }
+
+                // Migrace případných starších importovaných karet bez přiřazeného deckId
+                const legacyApkgCards = state.cards.filter(c => c.id.startsWith('apkg-') && !c.deckId);
+                if (legacyApkgCards.length > 0) {
+                    const legacyDeckId = 'deck-legacy-import';
+                    if (!state.decks.some(d => d.id === legacyDeckId)) {
+                        state.decks.push({
+                            id: legacyDeckId,
+                            name: 'Importovaný Anki balíček',
+                            lang: legacyApkgCards[0].lang || 'es',
+                            level: legacyApkgCards[0].level || 'A1-A2',
+                            createdAt: Date.now()
+                        });
+                    }
+                    legacyApkgCards.forEach(c => { c.deckId = legacyDeckId; });
+                }
+
+                // Úklid prázdných balíčků a neplatného filtru balíčku
+                const activeDeckIds = new Set(state.cards.map(c => c.deckId).filter(Boolean));
+                state.decks = (state.decks || []).filter(d => activeDeckIds.has(d.id));
+                if (state.filters.deck && state.filters.deck.startsWith('deck-') && !activeDeckIds.has(state.filters.deck)) {
+                    state.filters.deck = 'all';
                 }
 
                 const today = new Date().toISOString().split('T')[0];
@@ -1160,14 +1200,14 @@
             toast.textContent = msg;
             toast.classList.remove('hidden');
             clearTimeout(window._toastTimer);
-            window._toastTimer = setTimeout(() => toast.classList.add('hidden'), 2200);
+            window._toastTimer = setTimeout(() => toast.classList.add('hidden'), 2400);
         }
 
         function applyTheme() {
             document.documentElement.classList.toggle('dark', !!state.settings.darkMode);
         }
 
-        // --- CHYTRÝ PŘEKLAD DOTAZU A HROMADNÉ DOPLŇOVÁNÍ OBRÁZKŮ PRO EXTERNÍ IMPORTY ---
+        // --- CHYTRÝ PŘEKLAD DOTAZU A HROMADNÉ DOPLŇOVÁNÍ OBRÁZKŮ ---
         async function resolveEnglishQueryForCard(card) {
             if (card.imgQuery) return card.imgQuery;
 
@@ -1207,7 +1247,6 @@
             const cleanQuery = encodeURIComponent(query.trim());
             if (!cleanQuery) return [];
 
-            // 1. Primárně Pexels API (pokud uživatel zadal bezplatný klíč)
             const pexelsKey = (state.settings.pexelsApiKey || '').trim();
             if (pexelsKey) {
                 try {
@@ -1229,7 +1268,6 @@
                 }
             }
 
-            // 2. Bezplatná záloha bez API klíče: Wikimedia Commons vyhledávání obrázků
             try {
                 const wikiUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=filetype:bitmap+${cleanQuery}&gsrnamespace=6&gsrlimit=${perPage}&prop=imageinfo&iiprop=url&iiurlwidth=360&format=json&origin=*`;
                 const res = await fetch(wikiUrl);
@@ -1410,7 +1448,7 @@
             });
         }
 
-        // --- VYLEPŠENÁ HLASOVÁ SYNTÉZA (NEURÁLNÍ / GOOGLE / NATURAL HLASY) ---
+        // --- VYLEPŠENÁ HLASOVÁ SYNTÉZA ---
         function refreshVoices() {
             if (!('speechSynthesis' in window)) return;
             availableVoices = window.speechSynthesis.getVoices() || [];
@@ -1589,7 +1627,7 @@
             }
         }
 
-        // --- SPACED REPETITION (SM-2) A FILTROVÁNÍ ---
+        // --- SPACED REPETITION (SM-2) A FILTROVÁNÍ BALÍČKŮ ---
         function getEffectiveDailyNewLimit() {
             const base = parseInt(state.settings.dailyNewLimit, 10) || 20;
             return base > 100 ? Infinity : (base + bonusNewWordsToday);
@@ -1600,12 +1638,38 @@
             return limit !== Infinity && (state.stats.todayNewLearned || 0) >= limit;
         }
 
+        function getDeckNameById(deckId) {
+            if (!deckId) return '';
+            const deck = (state.decks || []).find(d => d.id === deckId);
+            return deck ? deck.name : '';
+        }
+
         function getFilteredCards() {
+            const deckFilter = state.filters.deck || 'all';
+            const seenInAllMode = new Set();
+
             return state.cards.filter(c => {
                 if (c.lang !== state.filters.lang) return false;
+
+                if (deckFilter === 'builtin') {
+                    if (c.deckId || c.id.startsWith('custom-') || c.id.startsWith('apkg-')) return false;
+                } else if (deckFilter === 'custom') {
+                    if (!c.id.startsWith('custom-')) return false;
+                } else if (deckFilter.startsWith('deck-')) {
+                    if (c.deckId !== deckFilter) return false;
+                }
+
                 if (state.filters.level !== 'all' && c.level !== state.filters.level) return false;
                 if (state.filters.pos === 'phrase' && c.pos !== 'Fráze') return false;
                 if (state.filters.pos === 'word' && c.pos === 'Fráze') return false;
+
+                // V režimu "Balíček: Vše" zabráníme duplicitám stejného slovíčka mezi základním a nahraným balíčkem
+                if (deckFilter === 'all') {
+                    const normKey = `${c.lang}:${c.word.toLocaleLowerCase()}`;
+                    if (seenInAllMode.has(normKey)) return false;
+                    seenInAllMode.add(normKey);
+                }
+
                 return true;
             });
         }
@@ -1654,7 +1718,6 @@
             document.getElementById('interval-4').textContent = p.reps === 0 ? '4 dny' : formatInterval(Math.max(4320, baseDays * 1440 * ease * 1.3));
         }
 
-        // Bezpečné zvýraznění cílového slova ve vzorové větě
         function highlightTargetWordInSentence(sentence, targetWord) {
             if (!sentence) return '';
             const escapeHtml = s => s.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -1787,6 +1850,17 @@
 
             document.getElementById('card-level-badge').textContent = card.level;
             document.getElementById('card-pos-badge').textContent = card.pos;
+
+            const deckBadge = document.getElementById('card-deck-badge');
+            const deckName = getDeckNameById(card.deckId);
+            if (deckBadge) {
+                if (deckName) {
+                    deckBadge.textContent = `📦 ${deckName}`;
+                    deckBadge.classList.remove('hidden');
+                } else {
+                    deckBadge.classList.add('hidden');
+                }
+            }
 
             const modeBadge = document.getElementById('card-mode-badge');
             if (modeBadge) modeBadge.classList.toggle('hidden', !currentCardMirrored);
@@ -2021,10 +2095,153 @@
             }
         }
 
+        // --- VÝBĚR BALÍČKU (POPULATE & RENDER) ---
+        function escapeAttr(str) {
+            return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+        }
+
+        function populateDeckSelectors() {
+            const mainSelect = document.getElementById('filter-deck');
+            const dictSelect = document.getElementById('dict-filter-deck');
+            const decks = state.decks || [];
+            const customCount = state.cards.filter(c => c.lang === state.filters.lang && c.id.startsWith('custom-')).length;
+
+            const countByDeck = new Map();
+            state.cards.forEach(c => {
+                if (c.deckId) countByDeck.set(c.deckId, (countByDeck.get(c.deckId) || 0) + 1);
+            });
+
+            if (mainSelect) {
+                let html = `<option value="all">Balíček: Vše</option>`;
+                html += `<option value="builtin">Základní slovník</option>`;
+                if (customCount > 0) {
+                    html += `<option value="custom">Vlastní (${customCount})</option>`;
+                }
+                decks.forEach(d => {
+                    const cnt = countByDeck.get(d.id) || 0;
+                    const flag = d.lang === 'es' ? '🇪🇸' : '🇬🇧';
+                    html += `<option value="${escapeAttr(d.id)}">📦 ${flag} ${escapeAttr(d.name)} (${cnt})</option>`;
+                });
+                mainSelect.innerHTML = html;
+                mainSelect.value = state.filters.deck || 'all';
+                if (mainSelect.value !== (state.filters.deck || 'all')) {
+                    mainSelect.value = 'all';
+                    state.filters.deck = 'all';
+                }
+            }
+
+            if (dictSelect) {
+                const prevDictDeck = dictSelect.value || 'all';
+                let html = `<option value="all">Balíček: Vše</option>`;
+                html += `<option value="builtin">Základní slovník</option>`;
+                if (customCount > 0) {
+                    html += `<option value="custom">Vlastní (${customCount})</option>`;
+                }
+                decks.filter(d => d.lang === state.filters.lang).forEach(d => {
+                    const cnt = countByDeck.get(d.id) || 0;
+                    html += `<option value="${escapeAttr(d.id)}">📦 ${escapeAttr(d.name)} (${cnt})</option>`;
+                });
+                dictSelect.innerHTML = html;
+                dictSelect.value = prevDictDeck;
+                if (dictSelect.value !== prevDictDeck) dictSelect.value = 'all';
+            }
+        }
+
+        function renderUploadedDecksList() {
+            const container = document.getElementById('uploaded-decks-list');
+            if (!container) return;
+
+            const decks = state.decks || [];
+            if (decks.length === 0) {
+                container.innerHTML = `<div class="text-[11px] text-slate-400 text-center py-2">Zatím nemáte nahraný žádný vlastní Anki balíček (.apkg).</div>`;
+                return;
+            }
+
+            const countByDeck = new Map();
+            const masteredByDeck = new Map();
+            state.cards.forEach(c => {
+                if (!c.deckId) return;
+                countByDeck.set(c.deckId, (countByDeck.get(c.deckId) || 0) + 1);
+                const p = state.progress[c.id];
+                if (p && p.interval >= 3) {
+                    masteredByDeck.set(c.deckId, (masteredByDeck.get(c.deckId) || 0) + 1);
+                }
+            });
+
+            container.innerHTML = decks.map(d => {
+                const total = countByDeck.get(d.id) || 0;
+                const mastered = masteredByDeck.get(d.id) || 0;
+                const isActive = state.filters.deck === d.id;
+                const flag = d.lang === 'es' ? '🇪🇸' : '🇬🇧';
+
+                return `
+                    <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-slate-900 border ${isActive ? 'border-blue-500 ring-1 ring-blue-500/40' : 'border-slate-200/80 dark:border-slate-700/80'}">
+                        <div class="min-w-0 flex-1">
+                            <div class="text-xs font-extrabold text-slate-900 dark:text-white truncate">${flag} ${escapeAttr(d.name)}</div>
+                            <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">${total} karet • zvládnuto ${mastered} • ${escapeAttr(d.level || '')}</div>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" data-use-deck="${escapeAttr(d.id)}" class="use-deck-btn px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${isActive ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' : 'bg-blue-600 hover:bg-blue-500 text-white'}">
+                                ${isActive ? '✓ Aktivní' : 'Používat'}
+                            </button>
+                            <button type="button" data-delete-deck="${escapeAttr(d.id)}" aria-label="Smazat balíček ${escapeAttr(d.name)}" title="Smazat celý balíček" class="delete-deck-btn p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function activateDeck(deckId) {
+            state.filters.deck = deckId;
+            extraPracticeLimit = 0;
+
+            if (deckId.startsWith('deck-')) {
+                const deck = (state.decks || []).find(d => d.id === deckId);
+                if (deck) {
+                    if (deck.lang) state.filters.lang = deck.lang;
+                    state.filters.level = 'all';
+                    state.filters.pos = 'all';
+                    showToast(`Aktivní balíček: ${deck.name}`);
+                }
+            } else if (deckId === 'builtin') {
+                showToast('Aktivní: Základní slovník');
+            } else {
+                showToast('Aktivní: Všechny balíčky');
+            }
+
+            saveState();
+            syncUI();
+            loadNextCard();
+        }
+
+        function deleteDeckById(deckId) {
+            const deck = (state.decks || []).find(d => d.id === deckId);
+            if (!deck) return;
+            const removedIds = state.cards.filter(c => c.deckId === deckId).map(c => c.id);
+            state.cards = state.cards.filter(c => c.deckId !== deckId);
+            state.decks = (state.decks || []).filter(d => d.id !== deckId);
+            removedIds.forEach(id => {
+                delete state.progress[id];
+                delete imageCache[id];
+            });
+            if (state.filters.deck === deckId) {
+                state.filters.deck = 'all';
+            }
+            saveImageCache();
+            saveState();
+            syncUI();
+            updateStatsModal();
+            loadNextCard();
+            showToast(`Balíček „${deck.name}“ smazán`);
+        }
+
         // --- ZÁLOŽKA: KOMPLETNÍ SLOVNÍK ---
         function renderDictionaryList() {
             const container = document.getElementById('dict-list-container');
             const searchQuery = (document.getElementById('dict-search-input').value || '').trim().toLowerCase();
+            const deckFilter = document.getElementById('dict-filter-deck').value;
             const levelFilter = document.getElementById('dict-filter-level').value;
             const statusFilter = document.getElementById('dict-filter-status').value;
 
@@ -2032,6 +2249,9 @@
 
             const filtered = state.cards.filter(c => {
                 if (c.lang !== state.filters.lang) return false;
+                if (deckFilter === 'builtin' && (c.deckId || c.id.startsWith('custom-') || c.id.startsWith('apkg-'))) return false;
+                if (deckFilter === 'custom' && !c.id.startsWith('custom-')) return false;
+                if (deckFilter.startsWith('deck-') && c.deckId !== deckFilter) return false;
                 if (levelFilter !== 'all' && c.level !== levelFilter) return false;
 
                 const p = state.progress[c.id];
@@ -2109,6 +2329,7 @@
             document.getElementById('icon-sound-on').classList.toggle('hidden', !!state.settings.soundMuted);
             document.getElementById('icon-sound-off').classList.toggle('hidden', !state.settings.soundMuted);
 
+            populateDeckSelectors();
             document.getElementById('filter-level').value = state.filters.level;
             document.getElementById('filter-pos').value = state.filters.pos;
 
@@ -2153,6 +2374,205 @@
             if (counterEl) counterEl.textContent = `${withImages} / ${total} karet s fotkou`;
             const s = state.stats.streak;
             document.getElementById('stat-streak').textContent = s === 1 ? '1 den' : (s >= 2 && s <= 4 ? `${s} dny` : `${s} dní`);
+            renderUploadedDecksList();
+        }
+
+        // --- ROBUSTNÍ PARSER PRO ANKI .APKG (VČETNĚ ANKI 23.10+ ZSTD/PROTOBUF A CLOZE) ---
+        function loadScriptWithFallback(urls, testFn) {
+            return new Promise((resolve, reject) => {
+                if (testFn()) return resolve(urls[0]);
+                let idx = 0;
+                const tryNext = () => {
+                    if (idx >= urls.length) {
+                        return reject(new Error('Nepodařilo se načíst potřebnou knihovnu pro rozbalení balíčku (zkontrolujte připojení k internetu).'));
+                    }
+                    const url = urls[idx++];
+                    const script = document.createElement('script');
+                    script.src = url;
+                    script.onload = () => {
+                        if (testFn()) resolve(url);
+                        else tryNext();
+                    };
+                    script.onerror = () => tryNext();
+                    document.head.appendChild(script);
+                };
+                tryNext();
+            });
+        }
+
+        function readProtobufVarint(buf, offset) {
+            let result = 0;
+            let shift = 0;
+            let pos = offset;
+            while (pos < buf.length) {
+                const byte = buf[pos++];
+                result |= (byte & 0x7f) << shift;
+                if ((byte & 0x80) === 0) return { value: result >>> 0, next: pos };
+                shift += 7;
+                if (shift > 35) break;
+            }
+            return { value: 0, next: buf.length };
+        }
+
+        function parseAnkiProtobufMedia(bytes) {
+            const map = {};
+            const decoder = new TextDecoder('utf-8');
+            let pos = 0;
+            let index = 0;
+
+            while (pos < bytes.length) {
+                const tagInfo = readProtobufVarint(bytes, pos);
+                pos = tagInfo.next;
+                const fieldNum = tagInfo.value >>> 3;
+                const wireType = tagInfo.value & 7;
+
+                if (fieldNum === 1 && wireType === 2) {
+                    const lenInfo = readProtobufVarint(bytes, pos);
+                    pos = lenInfo.next;
+                    const end = Math.min(bytes.length, pos + lenInfo.value);
+                    let subPos = pos;
+                    let name = '';
+                    let legacyZipName = '';
+
+                    while (subPos < end) {
+                        const subTag = readProtobufVarint(bytes, subPos);
+                        subPos = subTag.next;
+                        const subField = subTag.value >>> 3;
+                        const subWire = subTag.value & 7;
+
+                        if (subWire === 2) {
+                            const subLen = readProtobufVarint(bytes, subPos);
+                            subPos = subLen.next;
+                            const slice = bytes.subarray(subPos, Math.min(end, subPos + subLen.value));
+                            if (subField === 1) name = decoder.decode(slice);
+                            else if (subField === 4) legacyZipName = decoder.decode(slice);
+                            subPos += subLen.value;
+                        } else if (subWire === 0) {
+                            subPos = readProtobufVarint(bytes, subPos).next;
+                        } else if (subWire === 1) {
+                            subPos += 8;
+                        } else if (subWire === 5) {
+                            subPos += 4;
+                        } else {
+                            subPos = end;
+                        }
+                    }
+
+                    if (name) {
+                        const key = legacyZipName || String(index);
+                        map[key] = name;
+                    }
+                    index++;
+                    pos = end;
+                } else if (wireType === 2) {
+                    const lenInfo = readProtobufVarint(bytes, pos);
+                    pos = lenInfo.next + lenInfo.value;
+                } else if (wireType === 0) {
+                    pos = readProtobufVarint(bytes, pos).next;
+                } else if (wireType === 1) {
+                    pos += 8;
+                } else if (wireType === 5) {
+                    pos += 4;
+                } else {
+                    break;
+                }
+            }
+            return map;
+        }
+
+        function extractAnkiFieldsSmart(rawFields, fieldNames = []) {
+            const stripHtml = value => String(value || '')
+                .replace(/<br\s*\/?\s*>/gi, ' ')
+                .replace(/<\/(div|p|li|tr)>/gi, ' ')
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/&nbsp;/gi, ' ')
+                .replace(/&amp;/gi, '&')
+                .replace(/&lt;/gi, '<')
+                .replace(/&gt;/gi, '>')
+                .replace(/&quot;/gi, '"')
+                .replace(/&#39;/gi, "'")
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            const cleaned = rawFields.map(f => stripHtml(f).replace(/\[sound:[^\]]+\]/g, '').trim());
+            const lowerNames = fieldNames.map(n => String(n || '').toLowerCase().trim());
+
+            const findFieldByNames = (patterns) => {
+                for (let i = 0; i < lowerNames.length; i++) {
+                    if (!cleaned[i]) continue;
+                    if (patterns.some(rx => rx.test(lowerNames[i]))) return { index: i, value: cleaned[i] };
+                }
+                return null;
+            };
+
+            let word = '';
+            let translation = '';
+            let phonetic = '';
+            let exForeign = '';
+            let exCs = '';
+            let mnemonic = '';
+
+            const wordMatch = findFieldByNames([/^(front|word|expression|term|target|spanish|español|english|anglicky|question|slovo|výraz|otázka)$/]);
+            const transMatch = findFieldByNames([/^(back|translation|meaning|definition|czech|česky|překlad|význam|answer|odpověď)$/]);
+            const phonMatch = findFieldByNames([/(phonetic|ipa|pronunciation|reading|výslovnost|přepis)/]);
+            const exMatch = findFieldByNames([/^(example|sentence|context|usage|příklad|věta|example_1|sentence_1)$/]);
+            const exCsMatch = findFieldByNames([/(example.*trans|sentence.*trans|příklad.*překlad|překlad.*věty)/]);
+            const mnemMatch = findFieldByNames([/(mnemonic|hint|note|extra|asociace|poznámka|pomůcka)/]);
+
+            if (wordMatch) word = wordMatch.value;
+            if (transMatch && (!wordMatch || transMatch.index !== wordMatch.index)) translation = transMatch.value;
+            if (phonMatch) phonetic = phonMatch.value;
+            if (exMatch) exForeign = exMatch.value;
+            if (exCsMatch) exCs = exCsMatch.value;
+            if (mnemMatch) mnemonic = mnemMatch.value;
+
+            // Záložní heuristika podle pořadí neprázdných polí (pokud názvy polí nejsou standardní)
+            if (!word || !translation) {
+                const nonEmpty = cleaned.filter(Boolean);
+                if (nonEmpty.length === 0) return null;
+
+                let startIdx = 0;
+                // Pokud je první pole jen pořadové číslo (např. "1", "042"), přeskočíme ho
+                if (nonEmpty.length >= 3 && /^\d{1,5}$/.test(nonEmpty[0])) {
+                    startIdx = 1;
+                }
+
+                if (!word && nonEmpty[startIdx]) word = nonEmpty[startIdx];
+                if (!translation && nonEmpty[startIdx + 1]) translation = nonEmpty[startIdx + 1];
+                if (!exForeign && nonEmpty[startIdx + 2] && nonEmpty[startIdx + 2] !== phonetic) {
+                    exForeign = nonEmpty[startIdx + 2];
+                }
+            }
+
+            // Podpora Cloze doplňovacích karet ({{c1::odpověď}} nebo {{c1::odpověď::nápověda}})
+            const clozeRegex = /\{\{c\d+::(.*?)(?:::(.*?))?\}\}/g;
+            if (word && clozeRegex.test(word)) {
+                clozeRegex.lastIndex = 0;
+                const clozeAnswers = [];
+                const fullSentence = word.replace(clozeRegex, (_, ans) => {
+                    if (ans) clozeAnswers.push(ans.trim());
+                    return ans || '';
+                }).trim();
+                clozeRegex.lastIndex = 0;
+                const maskedPrompt = word.replace(clozeRegex, (_, _ans, hint) => hint ? `[${hint.trim()}]` : '[...]').trim();
+
+                if (!translation && clozeAnswers.length > 0) {
+                    word = maskedPrompt;
+                    translation = clozeAnswers.join(', ');
+                    if (!exForeign) exForeign = fullSentence;
+                } else {
+                    word = fullSentence;
+                }
+            }
+            if (translation) {
+                translation = translation.replace(/\{\{c\d+::(.*?)(?:::(.*?))?\}\}/g, '$1').trim();
+            }
+            if (exForeign) {
+                exForeign = exForeign.replace(/\{\{c\d+::(.*?)(?:::(.*?))?\}\}/g, '$1').trim();
+            }
+
+            if (!word || !translation) return null;
+            return { word, translation, phonetic, exForeign, exCs, mnemonic };
         }
 
         // --- INICIALIZACE A UDÁLOSTI ---
@@ -2181,11 +2601,33 @@
             }, 1000);
 
             document.getElementById('lang-es').addEventListener('click', () => {
-                state.filters.lang = 'es'; extraPracticeLimit = 0; saveState(); syncUI(); loadNextCard();
+                state.filters.lang = 'es';
+                if (state.filters.deck && state.filters.deck.startsWith('deck-')) {
+                    const activeDeck = (state.decks || []).find(d => d.id === state.filters.deck);
+                    if (activeDeck && activeDeck.lang !== 'es') state.filters.deck = 'all';
+                }
+                extraPracticeLimit = 0;
+                saveState();
+                syncUI();
+                loadNextCard();
             });
+
             document.getElementById('lang-en').addEventListener('click', () => {
-                state.filters.lang = 'en'; extraPracticeLimit = 0; saveState(); syncUI(); loadNextCard();
+                state.filters.lang = 'en';
+                if (state.filters.deck && state.filters.deck.startsWith('deck-')) {
+                    const activeDeck = (state.decks || []).find(d => d.id === state.filters.deck);
+                    if (activeDeck && activeDeck.lang !== 'en') state.filters.deck = 'all';
+                }
+                extraPracticeLimit = 0;
+                saveState();
+                syncUI();
+                loadNextCard();
             });
+
+            document.getElementById('filter-deck').addEventListener('change', (e) => {
+                activateDeck(e.target.value);
+            });
+
             document.getElementById('filter-level').addEventListener('change', (e) => {
                 state.filters.level = e.target.value; extraPracticeLimit = 0; saveState(); loadNextCard();
             });
@@ -2290,23 +2732,32 @@
             document.getElementById('delete-custom-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (!currentCard || !(currentCard.id.startsWith('custom-') || currentCard.id.startsWith('apkg-'))) return;
+                const removedDeckId = currentCard.deckId;
                 state.cards = state.cards.filter(c => c.id !== currentCard.id);
                 delete state.progress[currentCard.id];
                 delete imageCache[currentCard.id];
+                if (removedDeckId && !state.cards.some(c => c.deckId === removedDeckId)) {
+                    state.decks = (state.decks || []).filter(d => d.id !== removedDeckId);
+                    if (state.filters.deck === removedDeckId) state.filters.deck = 'all';
+                }
                 saveImageCache();
                 saveState();
+                syncUI();
                 showToast('Kartička smazána');
                 loadNextCard();
             });
 
             // Slovník
             document.getElementById('open-dict-btn').addEventListener('click', () => {
+                populateDeckSelectors();
+                document.getElementById('dict-filter-deck').value = state.filters.deck || 'all';
                 document.getElementById('dict-filter-level').value = state.filters.level;
                 renderDictionaryList();
                 dictModal.classList.remove('hidden');
             });
             document.getElementById('close-dict-btn').addEventListener('click', () => dictModal.classList.add('hidden'));
             document.getElementById('dict-search-input').addEventListener('input', renderDictionaryList);
+            document.getElementById('dict-filter-deck').addEventListener('change', renderDictionaryList);
             document.getElementById('dict-filter-level').addEventListener('change', renderDictionaryList);
             document.getElementById('dict-filter-status').addEventListener('change', renderDictionaryList);
             document.getElementById('dict-list-container').addEventListener('click', (e) => {
@@ -2333,10 +2784,33 @@
             document.getElementById('close-add-btn').addEventListener('click', () => addModal.classList.add('hidden'));
 
             document.getElementById('open-stats-btn').addEventListener('click', () => {
+                document.getElementById('apkg-lang').value = state.filters.lang;
                 updateStatsModal();
                 statsModal.classList.remove('hidden');
             });
             document.getElementById('close-stats-btn').addEventListener('click', () => statsModal.classList.add('hidden'));
+
+            document.getElementById('select-all-decks-btn').addEventListener('click', () => {
+                activateDeck('all');
+                statsModal.classList.add('hidden');
+            });
+
+            document.getElementById('uploaded-decks-list').addEventListener('click', (e) => {
+                const useBtn = e.target.closest('.use-deck-btn');
+                if (useBtn) {
+                    const deckId = useBtn.getAttribute('data-use-deck');
+                    if (deckId) {
+                        activateDeck(deckId);
+                        statsModal.classList.add('hidden');
+                    }
+                    return;
+                }
+                const delBtn = e.target.closest('.delete-deck-btn');
+                if (delBtn) {
+                    const deckId = delBtn.getAttribute('data-delete-deck');
+                    if (deckId) deleteDeckById(deckId);
+                }
+            });
 
             document.getElementById('prefetch-all-images-btn').addEventListener('click', () => {
                 const statusEl = document.getElementById('prefetch-status');
@@ -2374,6 +2848,7 @@
 
                 state.cards.unshift(newCard);
                 saveState();
+                syncUI();
                 e.target.reset();
                 addModal.classList.add('hidden');
                 showToast('Kartička přidána, stahuji obrázek…');
@@ -2477,7 +2952,7 @@
                 reader.readAsText(file);
             });
 
-            // Import Anki balíčků (.apkg)
+            // --- IMPORT ANKI BALÍČKŮ (.apkg) ---
             const apkgInput = document.getElementById('apkg-import-input');
             if (apkgInput) apkgInput.addEventListener('change', async (e) => {
                 const file = e.target.files && e.target.files[0];
@@ -2486,35 +2961,129 @@
                 const lang = document.getElementById('apkg-lang').value;
                 const level = document.getElementById('apkg-level').value;
                 status.textContent = 'Načítám balíček…';
+
                 try {
-                    const loadScript = (src, test) => new Promise((resolve, reject) => {
-                        if (test()) return resolve();
-                        const script = document.createElement('script');
-                        script.src = src;
-                        script.onload = () => test() ? resolve() : reject(new Error('Knihovnu se nepodařilo inicializovat.'));
-                        script.onerror = () => reject(new Error('Knihovnu se nepodařilo stáhnout.'));
-                        document.head.appendChild(script);
-                    });
-                    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', () => !!window.JSZip);
-                    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js', () => !!window.initSqlJs);
+                    await loadScriptWithFallback([
+                        'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+                        'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'
+                    ], () => !!window.JSZip);
+
+                    const sqlScriptUrl = await loadScriptWithFallback([
+                        'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js',
+                        'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js'
+                    ], () => !!window.initSqlJs);
+                    const sqlBaseUrl = sqlScriptUrl.substring(0, sqlScriptUrl.lastIndexOf('/') + 1);
+
                     status.textContent = 'Rozbaluji soubor a čtu databázi…';
-                    const zip = await JSZip.loadAsync(file);
-                    let dbName = ['collection.anki2', 'collection.anki21'].find(n => zip.file(n));
-                    let dbBytes;
-                    if (dbName) dbBytes = new Uint8Array(await zip.file(dbName).async('uint8array'));
-                    else if (zip.file('collection.anki21b')) {
-                        await loadScript('https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js', () => !!window.fzstd);
-                        dbBytes = window.fzstd.decompress(new Uint8Array(await zip.file('collection.anki21b').async('uint8array')));
-                        dbName = 'collection.anki21b';
-                    } else throw new Error('V souboru nebyla nalezena podporovaná Anki databáze.');
-                    const SQL = await initSqlJs({ locateFile: name => 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/' + name });
+                    let zip;
+                    try {
+                        zip = await JSZip.loadAsync(file);
+                    } catch (_) {
+                        throw new Error('Vybraný soubor není platný Anki balíček (.apkg / ZIP).');
+                    }
+
+                    // DŮLEŽITÉ: Moderní Anki balíčky (23.10+) obsahují collection.anki21b (skutečná data)
+                    // A ZÁROVEŇ dummy collection.anki2 (1 karta "Please update Anki"). Musíme tedy kontrolovat v pořadí anki21b -> anki21 -> anki2!
+                    let dbBytes = null;
+                    let isModernZstd = false;
+
+                    if (zip.file('collection.anki21b')) {
+                        await loadScriptWithFallback([
+                            'https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js',
+                            'https://unpkg.com/fzstd@0.1.1/umd/index.js'
+                        ], () => !!window.fzstd);
+                        const compressed = new Uint8Array(await zip.file('collection.anki21b').async('uint8array'));
+                        dbBytes = window.fzstd.decompress(compressed);
+                        isModernZstd = true;
+                    } else if (zip.file('collection.anki21')) {
+                        dbBytes = new Uint8Array(await zip.file('collection.anki21').async('uint8array'));
+                    } else if (zip.file('collection.anki2')) {
+                        dbBytes = new Uint8Array(await zip.file('collection.anki2').async('uint8array'));
+                    } else {
+                        throw new Error('V souboru nebyla nalezena Anki databáze (collection.anki2 / anki21 / anki21b).');
+                    }
+
+                    const SQL = await initSqlJs({ locateFile: name => sqlBaseUrl + name });
                     const db = new SQL.Database(dbBytes);
+
                     const tableNames = db.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]?.values?.flat() || [];
-                    if (!tableNames.includes('notes')) throw new Error('V balíčku chybí tabulka poznámek.');
+                    if (!tableNames.includes('notes')) {
+                        db.close();
+                        throw new Error('V balíčku chybí tabulka poznámek (notes).');
+                    }
+
+                    // Načtení názvů balíčků a polí z databáze (klasické i nové Anki schéma)
+                    const deckNamesById = new Map();
+                    const modelFieldsMap = new Map();
+                    const noteDeckIdMap = new Map();
+
+                    if (tableNames.includes('cards')) {
+                        const cardsRows = db.exec('SELECT nid, did FROM cards')[0]?.values || [];
+                        for (const [nid, did] of cardsRows) {
+                            if (!noteDeckIdMap.has(String(nid))) {
+                                noteDeckIdMap.set(String(nid), String(did));
+                            }
+                        }
+                    }
+
+                    if (tableNames.includes('decks')) {
+                        const deckRows = db.exec('SELECT id, name FROM decks')[0]?.values || [];
+                        for (const [did, dname] of deckRows) {
+                            deckNamesById.set(String(did), String(dname || '').replace(/\x1f/g, ' :: ').trim());
+                        }
+                    }
+
+                    if (tableNames.includes('fields')) {
+                        const fldRows = db.exec('SELECT ntid, ord, name FROM fields ORDER BY ntid, ord')[0]?.values || [];
+                        for (const [ntid, _ord, fname] of fldRows) {
+                            const key = String(ntid);
+                            if (!modelFieldsMap.has(key)) modelFieldsMap.set(key, []);
+                            modelFieldsMap.get(key).push(String(fname || ''));
+                        }
+                    }
+
+                    if (tableNames.includes('col') && (deckNamesById.size === 0 || modelFieldsMap.size === 0)) {
+                        try {
+                            const colRows = db.exec('SELECT decks, models FROM col')[0]?.values || [];
+                            if (colRows[0]) {
+                                if (deckNamesById.size === 0 && colRows[0][0]) {
+                                    const decksObj = JSON.parse(colRows[0][0]);
+                                    for (const [did, dObj] of Object.entries(decksObj)) {
+                                        deckNamesById.set(String(did), String(dObj.name || '').replace(/\x1f/g, ' :: ').trim());
+                                    }
+                                }
+                                if (modelFieldsMap.size === 0 && colRows[0][1]) {
+                                    const modelsObj = JSON.parse(colRows[0][1]);
+                                    for (const [mid, mObj] of Object.entries(modelsObj)) {
+                                        modelFieldsMap.set(String(mid), (mObj.flds || []).map(f => String(f.name || '')));
+                                    }
+                                }
+                            }
+                        } catch (_) {}
+                    }
+
                     const notesResult = db.exec('SELECT id, mid, flds FROM notes');
                     const notes = notesResult[0]?.values || [];
+
+                    // Načtení médií (podporuje JSON i Zstd/Protobuf v Anki 23.10+)
                     let mediaMap = {};
-                    if (zip.file('media')) { try { mediaMap = JSON.parse(await zip.file('media').async('string')); } catch (_) {} }
+                    if (zip.file('media')) {
+                        try {
+                            const mediaBytes = new Uint8Array(await zip.file('media').async('uint8array'));
+                            if (mediaBytes.length > 0) {
+                                // Zstd magic bytes: 28 B5 2F FD
+                                const hasZstdMagic = mediaBytes.length >= 4 && mediaBytes[0] === 0x28 && mediaBytes[1] === 0xB5 && mediaBytes[2] === 0x2F && mediaBytes[3] === 0xFD;
+                                const rawMedia = (hasZstdMagic && window.fzstd) ? window.fzstd.decompress(mediaBytes) : mediaBytes;
+                                const firstChar = String.fromCharCode(rawMedia[0] || 0);
+                                if (firstChar === '{' || firstChar === ' ' || firstChar === '\n') {
+                                    mediaMap = JSON.parse(new TextDecoder('utf-8').decode(rawMedia));
+                                } else if (isModernZstd || hasZstdMagic) {
+                                    mediaMap = parseAnkiProtobufMedia(rawMedia);
+                                }
+                            }
+                        } catch (_) {}
+                    }
+
                     const mediaByName = new Map();
                     let savedImageBytes = 0;
                     for (const [num, originalName] of Object.entries(mediaMap)) {
@@ -2523,49 +3092,131 @@
                         const base64 = await zf.async('base64');
                         const ext = (originalName.split('.').pop() || 'png').toLowerCase();
                         const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
-                        if (base64.length < 48000 && savedImageBytes + base64.length < 1000000) {
+                        if (base64.length < 48000 && savedImageBytes + base64.length < 1200000) {
                             mediaByName.set(originalName, `data:${mime};base64,${base64}`);
                             savedImageBytes += base64.length;
                         }
                     }
-                    const stripHtml = value => String(value || '').replace(/<br\s*\/?\s*>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
-                    const existing = new Set(state.cards.map(c => `${c.lang}:${c.word.toLocaleLowerCase()}`));
+
+                    const fallbackFileDeckName = file.name
+                        .replace(/\.apkg$/i, '')
+                        .replace(/[_-]+/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim() || 'Anki balíček';
+
+                    const batchTimestamp = Date.now().toString(36);
+                    const createdDecksByAnkiDid = new Map();
+                    const seenInThisImport = new Set();
                     let added = 0, duplicates = 0;
                     const newlyImportedCards = [];
 
+                    const getOrCreateDeckForNote = (nid) => {
+                        const ankiDid = noteDeckIdMap.get(String(nid)) || 'default';
+                        if (createdDecksByAnkiDid.has(ankiDid)) {
+                            return createdDecksByAnkiDid.get(ankiDid);
+                        }
+                        let rawName = deckNamesById.get(ankiDid) || '';
+                        if (!rawName || /^default$/i.test(rawName)) {
+                            rawName = fallbackFileDeckName;
+                        }
+                        const deckObj = {
+                            id: `deck-${batchTimestamp}-${createdDecksByAnkiDid.size + 1}`,
+                            name: rawName,
+                            lang,
+                            level,
+                            createdAt: Date.now()
+                        };
+                        createdDecksByAnkiDid.set(ankiDid, deckObj);
+                        return deckObj;
+                    };
+
                     for (const row of notes) {
-                        const fields = String(row[2] || '').split('\x1f');
-                        const frontRaw = fields[0] || '';
-                        const word = stripHtml(frontRaw).replace(/\[sound:[^\]]+\]/g, '').trim();
-                        const translation = stripHtml(fields[1] || '');
-                        if (!word || !translation) continue;
-                        const key = `${lang}:${word.toLocaleLowerCase()}`;
-                        if (existing.has(key)) { duplicates++; continue; }
-                        existing.add(key);
-                        const imageMatch = frontRaw.match(/<img[^>]+src=["']([^"']+)["']/i) || String(fields[1] || '').match(/<img[^>]+src=["']([^"']+)["']/i);
-                        const mediaName = imageMatch ? imageMatch[1] : null;
-                        const imageData = mediaName ? mediaByName.get(mediaName) : null;
-                        const example = fields.length > 2 ? stripHtml(fields[2]) : '';
-                        const id = `apkg-${String(row[0])}-${Date.now().toString(36)}`;
+                        const nid = row[0];
+                        const mid = String(row[1] || '');
+                        const rawFields = String(row[2] || '').split('\x1f');
+                        const fieldNames = modelFieldsMap.get(mid) || [];
+
+                        const extracted = extractAnkiFieldsSmart(rawFields, fieldNames);
+                        if (!extracted) continue;
+
+                        const { word, translation, phonetic, exForeign, exCs, mnemonic } = extracted;
+
+                        // Přeskočíme případnou systémovou kartu o aktualizaci Anki
+                        if (/please update to the latest anki/i.test(word) || /please update to the latest anki/i.test(translation)) {
+                            continue;
+                        }
+
+                        const deckObj = getOrCreateDeckForNote(nid);
+                        const dedupeKey = `${deckObj.id}:${word.toLocaleLowerCase()}`;
+                        if (seenInThisImport.has(dedupeKey)) {
+                            duplicates++;
+                            continue;
+                        }
+                        seenInThisImport.add(dedupeKey);
+
+                        // Hledání vloženého obrázku v polích
+                        let imageData = null;
+                        for (const rf of rawFields) {
+                            const imageMatch = String(rf).match(/<img[^>]+src=["']([^"']+)["']/i);
+                            if (imageMatch && mediaByName.has(imageMatch[1])) {
+                                imageData = mediaByName.get(imageMatch[1]);
+                                break;
+                            }
+                        }
+
+                        const isPhrase = word.split(/\s+/).length >= 3;
+                        const id = `apkg-${String(nid)}-${batchTimestamp}-${added}`;
                         const cardObj = {
-                            id, lang, level, pos: 'Importováno', word, phonetic: '', translation,
-                            mnemonic: '', exForeign: example, exCs: '',
+                            id,
+                            deckId: deckObj.id,
+                            lang,
+                            level,
+                            pos: isPhrase ? 'Fráze' : 'Importováno',
+                            word,
+                            phonetic: phonetic || '',
+                            translation,
+                            mnemonic: mnemonic || '',
+                            exForeign: exForeign || '',
+                            exCs: exCs || '',
                             catKey: inferCategoryFromText(word, translation),
                             imageData: imageData || undefined,
                             source: 'Anki import'
                         };
+
                         state.cards.push(cardObj);
                         newlyImportedCards.push(cardObj);
                         added++;
                     }
+
                     db.close();
-                    state.filters.lang = lang; state.filters.level = level;
-                    saveState(); syncUI(); updateCounters(); updateStatsModal(); loadNextCard();
-                    status.textContent = `Import dokončen: přidáno ${added} karet (duplicit: ${duplicates}). Stahuji obrázkové asociace…`;
-                    showToast(`Importováno ${added} kartiček`);
+
+                    if (added === 0) {
+                        status.textContent = 'V balíčku nebyly nalezeny žádné textové kartičky k importu.';
+                        showToast('Balíček neobsahuje importovatelné karty');
+                        return;
+                    }
+
+                    const newDecks = Array.from(createdDecksByAnkiDid.values());
+                    newDecks.forEach(nd => state.decks.push(nd));
+
+                    // Rovnou aktivujeme nově nahraný balíček, aby ho uživatel mohl ihned používat
+                    const primaryDeck = newDecks[0];
+                    state.filters.lang = lang;
+                    state.filters.level = 'all';
+                    state.filters.pos = 'all';
+                    state.filters.deck = primaryDeck ? primaryDeck.id : 'all';
+
+                    saveState();
+                    syncUI();
+                    updateCounters();
+                    updateStatsModal();
+                    loadNextCard();
+
+                    status.textContent = `Import dokončen: přidáno ${added} karet do balíčku „${primaryDeck.name}“${duplicates ? ` (duplicit: ${duplicates})` : ''}.`;
+                    showToast(`Nahrán balíček: ${primaryDeck.name} (${added})`);
 
                     const cardsWithoutEmbeddedImg = newlyImportedCards.filter(c => !c.imageData);
-                    if (cardsWithoutEmbeddedImg.length > 0) {
+                    if (cardsWithoutEmbeddedImg.length > 0 && state.settings.autoPhotos && navigator.onLine) {
                         prefetchImagesForCards(cardsWithoutEmbeddedImg, msg => {
                             status.textContent = `Importováno ${added} karet. ${msg}`;
                             updateStatsModal();
@@ -2575,7 +3226,9 @@
                     console.error('Anki import:', err);
                     status.textContent = `Import se nezdařil: ${err.message || 'neznámá chyba'}`;
                     showToast('Import balíčku se nezdařil');
-                } finally { e.target.value = ''; }
+                } finally {
+                    e.target.value = '';
+                }
             });
         });
     </script>
